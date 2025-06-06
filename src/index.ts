@@ -14,6 +14,7 @@ import {
   pgListTableColumns,
   pgListTableForeignKeys,
   pgListTables,
+  executeReadOnlyQuery,
 } from "./db/helpers";
 import type { PgTableDetails } from "./db/types";
 
@@ -129,6 +130,21 @@ server.tool(
         column_name: fk.column_name,
       })),
     };
+    return textResult(result);
+  }
+);
+
+server.tool(
+  "pg_execute_query",
+  "Execute a read-only SQL query",
+  {
+    query: z.string(),
+  },
+  async ({ query }) => {
+    if (!query) {
+      throw new Error("Query is required");
+    }
+    const result = await executeReadOnlyQuery(pg, query);
     return textResult(result);
   }
 );
