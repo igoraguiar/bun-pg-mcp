@@ -1,3 +1,30 @@
+import { promises as fs } from "fs";
+import path from "path";
+import { z } from "zod";
+
+const DEFAULT_CONFIG_PATH = path.join(
+  process.env.HOME || "",
+  ".config",
+  "pg-mcp",
+  "config.json"
+);
+export const CONFIG_PATH =
+  process.env.PG_MCP_CONFIG_PATH || DEFAULT_CONFIG_PATH;
+
+export const DbEntrySchema = z.object({
+  url: z.string().url(),
+  ttl: z.number().min(0).default(60000),
+});
+
+export type DbEntry = z.infer<typeof DbEntrySchema>;
+
+export const ConfigSchema = z.object({
+  databases: z.record(DbEntrySchema),
+  autoReload: z.boolean().default(false),
+});
+
+export type Config = z.infer<typeof ConfigSchema>;
+
 export async function removeDatabase(name: string): Promise<void> {
   const config = await loadConfig();
   if (!config) {
@@ -9,6 +36,7 @@ export async function removeDatabase(name: string): Promise<void> {
   delete config.databases[name];
   await saveConfig(config);
 }
+
 export async function updateDatabase(
   name: string,
   update: Partial<DbEntry>
@@ -30,6 +58,7 @@ export async function updateDatabase(
   config.databases[name] = result.data;
   await saveConfig(config);
 }
+
 export async function addDatabase(
   name: string,
   dbConfig: DbEntry
@@ -50,37 +79,6 @@ export async function addDatabase(
   config.databases[name] = result.data;
   await saveConfig(config);
 }
-import { promises as fs } from "fs";
-import path from "path";
-import { z } from "zod";
-
-const DEFAULT_CONFIG_PATH = path.join(
-  process.env.HOME || "",
-  ".config",
-  "pg-mcp",
-  "config.json"
-);
-export const CONFIG_PATH =
-  process.env.PG_MCP_CONFIG_PATH || DEFAULT_CONFIG_PATH;
-
-export const DbEntrySchema = z.object({
-  url: z.string().url(),
-  ttl: z.number().min(0).default(60000),
-});
-
-export type DbEntry = z.infer<typeof DbEntrySchema>;
-
-// Config type and schema
-export type Config = {
-  databases: Record<string, DbEntry>;
-  /** Enable auto reload of config on file changes */
-  autoReload?: boolean;
-};
-
-export const ConfigSchema = z.object({
-  databases: z.record(DbEntrySchema),
-  autoReload: z.boolean().default(false),
-});
 
 export async function saveConfig(config: Config): Promise<void> {
   // Validate before saving
@@ -118,7 +116,10 @@ export async function loadConfig(): Promise<Config | null> {
             url: pgUrl,
             ttl: 60000,
           };
-          const config: Config = { databases: { default: dbEntry } };
+          const config: Config = {
+            databases: { default: dbEntry },
+            autoReload: true,
+          };
           await saveConfig(config);
           return config;
         } catch (parseErr) {

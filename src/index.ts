@@ -56,12 +56,6 @@ if (envFileExists) {
   await loadEnvFile(envFile);
 }
 
-const postgresUrl = process.env.POSTGRES_URL;
-if (!postgresUrl) {
-  throw new Error(
-    `POSTGRES_URL environment variable is not set: cwd=${cwd}, envFile=${envFile}, envFileExists=${envFileExists}`
-  );
-}
 // Initialize connection pool using configured databases
 const pool = new SqlPool();
 const config = await loadConfig();
@@ -134,15 +128,30 @@ server.tool(
   }
 );
 
-server.tool("get_url", "Retrieves PostgreSQL connection URL", {}, async () => {
-  try {
-    return textResult(redactCredentials(postgresUrl));
-  } catch (error) {
-    return textResult({
-      error: error instanceof Error ? error.message : "Unknown error",
-    });
+server.tool(
+  "get_url",
+  "Retrieves PostgreSQL connection URL",
+  { database: z.string().optional() },
+  async ({ database }) => {
+    try {
+      const name = database ?? (singleDb ? defaultDbName : undefined);
+      if (!name)
+        throw new Error(
+          `Multiple databases are configured: ${dbNames.join(
+            ", "
+          )}. Please specify the database using the ` +
+            "`database`" +
+            ` parameter.`
+        );
+      const { url } = await getConfig(name);
+      return textResult(redactCredentials(url));
+    } catch (error) {
+      return textResult({
+        error: error instanceof Error ? error.message : "Unknown error",
+      });
+    }
   }
-});
+);
 
 server.tool(
   "pg_list_schemas",
