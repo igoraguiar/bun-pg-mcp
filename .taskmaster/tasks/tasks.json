@@ -1,0 +1,226 @@
+{
+  "master": {
+    "tasks": [
+      {
+        "id": 1,
+        "title": "Setup Project Repository",
+        "description": "Set up the project repository with necessary configurations, including initializing a Bun project, setting up linting, formatting, and defining the basic project structure.",
+        "details": "1. Initialize a new Bun project using `bun init`.\n2. Configure ESLint and Prettier for code linting and formatting.\n3. Create the basic directory structure: `src`, `tests`, `config`.\n4. Define initial `.gitignore` file to exclude node_modules and other unnecessary files.",
+        "testStrategy": "Ensure the project builds without errors, linting and formatting are correctly configured, and the basic directory structure is in place.",
+        "priority": "high",
+        "dependencies": [],
+        "status": "done",
+        "subtasks": []
+      },
+      {
+        "id": 2,
+        "title": "Implement ConfigManager",
+        "description": "Implement the ConfigManager class with methods for loading, validating, saving, listing, adding, updating, and removing database configurations from a JSON file. This includes handling the default configuration path, migrating from POSTGRES_URL, and validating the configuration using Zod.",
+        "details": "1. Create `src/config.ts`.\n2. Define `DbEntry` and `Config` types and corresponding Zod schemas (`DbEntrySchema`, `ConfigSchema`).\n3. Implement `loadConfig()` to read the config from `PG_MCP_CONFIG_PATH` (defaulting to `$HOME/.config/pg-mcp/config.json`).\n4. Implement `saveConfig()` using atomic writes (tmp file + rename).\n5. Implement `getConfig(name: string)` to retrieve a specific database configuration.\n6. Implement `listDatabases()` to return all database configurations.\n7. Implement `addDatabase(name: string, config: DbEntry)`, `updateDatabase(name: string, config: Partial<DbEntry>)`, and `removeDatabase(name: string)`.\n8. Implement migration logic: if no config file exists but `POSTGRES_URL` is set, create a default config.\n9. Use `fs/promises` for file operations.",
+        "testStrategy": "1. Unit tests for loading, saving, adding, updating, and removing configurations.\n2. Test validation logic with invalid configurations.\n3. Test migration from POSTGRES_URL.",
+        "priority": "high",
+        "dependencies": [
+          1
+        ],
+        "status": "in-progress",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Implement loadConfig() and saveConfig()",
+            "description": "Implement `loadConfig()` to read the config from `PG_MCP_CONFIG_PATH` (defaulting to `$HOME/.config/pg-mcp/config.json`) and `saveConfig()` using atomic writes (tmp file + rename).",
+            "dependencies": [],
+            "details": "Use `fs/promises` for file operations. Ensure proper error handling for file read/write operations.",
+            "status": "in-progress",
+            "testStrategy": ""
+          },
+          {
+            "id": 2,
+            "title": "Implement getConfig() and listDatabases()",
+            "description": "Implement `getConfig(name: string)` to retrieve a specific database configuration and `listDatabases()` to return all database configurations.",
+            "dependencies": [
+              "2.1"
+            ],
+            "details": "Ensure proper error handling when a database configuration is not found.",
+            "status": "pending",
+            "testStrategy": ""
+          },
+          {
+            "id": 3,
+            "title": "Implement addDatabase()",
+            "description": "Implement `addDatabase(name: string, config: DbEntry)` to add a new database configuration.",
+            "dependencies": [
+              "2.1",
+              "2.2"
+            ],
+            "details": "Validate the configuration using Zod before saving. Ensure that the database name is unique.",
+            "status": "pending",
+            "testStrategy": ""
+          },
+          {
+            "id": 4,
+            "title": "Implement updateDatabase()",
+            "description": "Implement `updateDatabase(name: string, config: Partial<DbEntry>)` to update an existing database configuration.",
+            "dependencies": [
+              "2.1",
+              "2.2"
+            ],
+            "details": "Validate the updated configuration using Zod before saving. Ensure that the database name exists.",
+            "status": "pending",
+            "testStrategy": ""
+          },
+          {
+            "id": 5,
+            "title": "Implement removeDatabase()",
+            "description": "Implement `removeDatabase(name: string)` to remove a database configuration.",
+            "dependencies": [
+              "2.1",
+              "2.2"
+            ],
+            "details": "Ensure that the database name exists before removing.",
+            "status": "pending",
+            "testStrategy": ""
+          },
+          {
+            "id": 6,
+            "title": "Implement Migration Logic",
+            "description": "Implement migration logic: if no config file exists but `POSTGRES_URL` is set, create a default config.",
+            "dependencies": [
+              "2.1"
+            ],
+            "details": "Create a default configuration based on the `POSTGRES_URL` environment variable.",
+            "status": "pending",
+            "testStrategy": ""
+          },
+          {
+            "id": 7,
+            "title": "Implement Zod Schema Validation",
+            "description": "Define `DbEntry` and `Config` types and corresponding Zod schemas (`DbEntrySchema`, `ConfigSchema`).",
+            "dependencies": [],
+            "details": "Ensure that all configuration values are properly validated using the Zod schemas.",
+            "status": "pending",
+            "testStrategy": ""
+          }
+        ]
+      },
+      {
+        "id": 3,
+        "title": "Implement SqlPool",
+        "description": "Implement the SqlPool class with methods for getting, evicting, reconciling, and closing database connections. This includes managing a lazy-loaded pool of Bun SQL clients, tracking lastUsed timestamps and TTLs, and implementing an idle reaper to close inactive connections.",
+        "details": "1. Create `src/sqlPool.ts`.\n2. Implement `get(database: string)` to retrieve a Bun SQL client from the pool (create if it doesn't exist).\n3. Implement `evict(database: string)` to remove a client from the pool and close the connection.\n4. Implement `reconcile(newConfig: Config)` to update the pool based on a new configuration.\n5. Implement `closeAll()` to close all connections in the pool.\n6. Implement an idle reaper that periodically checks for inactive connections (based on `lastUsed` and `ttl`) and closes them.\n7. Use `Bun.SQL.end()` to properly close connections.",
+        "testStrategy": "1. Unit tests for getting, evicting, reconciling, and closing connections.\n2. Test TTL and idle reaper functionality.\n3. Verify that connections are properly closed using `Bun.SQL.end()`.",
+        "priority": "high",
+        "dependencies": [
+          2
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 4,
+        "title": "Update Existing Tools",
+        "description": "Update all existing Postgres MCP tools to accept a `database` parameter and use the SqlPool to obtain database connections. Provide single-database auto-selection for backward compatibility.",
+        "details": "1. Modify existing pg_* tools to accept a `{ database: string, ... }` argument.\n2. Use `await pool.get(database)` to obtain a Bun SQL client.\n3. Implement logic to auto-select the database if the `database` parameter is omitted and exactly one database is configured.\n4. Return an error if the `database` parameter is omitted and multiple databases are configured, instructing the user to specify a database.",
+        "testStrategy": "1. Integration tests for all existing pg_* tools with and without the `database` parameter.\n2. Verify that the correct database is used based on the `database` parameter or auto-selection.\n3. Verify that an error is returned when the `database` parameter is omitted and multiple databases are configured.",
+        "priority": "high",
+        "dependencies": [
+          3,
+          2
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 5,
+        "title": "Implement New MCP Tools",
+        "description": "Implement the new config management MCP tools: `pg_db_list`, `pg_db_add`, `pg_db_update`, `pg_db_remove`, and `pg_db_reload`. Ensure that the SqlPool is properly reconciled when databases are added, updated, or removed.",
+        "details": "1. Implement `pg_db_list` to list all configured databases.\n2. Implement `pg_db_add` to add a new database configuration.\n3. Implement `pg_db_update` to update an existing database configuration.\n4. Implement `pg_db_remove` to remove a database configuration.\n5. Implement `pg_db_reload` to reload the configuration from disk and reconcile the SqlPool.\n6. Ensure that `evict()` is called on the SqlPool when a database is updated or removed.\n7. Ensure that `reconcile()` is called on the SqlPool after the configuration is reloaded or modified.",
+        "testStrategy": "1. Integration tests for all new MCP tools.\n2. Verify that the SqlPool is properly reconciled when databases are added, updated, or removed.\n3. Verify that the configuration is reloaded from disk when `pg_db_reload` is called.",
+        "priority": "high",
+        "dependencies": [
+          2,
+          3
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 6,
+        "title": "Implement Auto-Reload",
+        "description": "Implement the optional file system watch for auto-reloading the configuration. Debounce the watch events and reconcile the SqlPool when changes are detected.",
+        "details": "1. Use `fs.watch` (or Bun equivalent) to watch for changes to the configuration file.\n2. Debounce the watch events to avoid thrashing.\n3. When a change is detected, reload the configuration from disk and reconcile the SqlPool.\n4. Only enable the file system watch if `autoReload` is set to `true` in the configuration.",
+        "testStrategy": "1. Integration tests to verify that the configuration is automatically reloaded when the configuration file is changed.\n2. Verify that the SqlPool is properly reconciled after the configuration is reloaded.\n3. Test the debouncing logic to ensure that changes are not reloaded too frequently.",
+        "priority": "medium",
+        "dependencies": [
+          2,
+          3,
+          5
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 7,
+        "title": "Update README",
+        "description": "Update the README file to cover the configuration path, schema, tools, and usage. Provide clear instructions on how to configure and use the pg-mcp tool.",
+        "details": "1. Update the README file to include information about the `PG_MCP_CONFIG_PATH` environment variable.\n2. Document the configuration schema and provide examples.\n3. Describe the new and updated MCP tools and their usage.\n4. Provide instructions on how to configure and use the pg-mcp tool.",
+        "testStrategy": "Manually review the README file to ensure that it is clear, accurate, and complete.",
+        "priority": "low",
+        "dependencies": [
+          2
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 8,
+        "title": "Add Tests",
+        "description": "Add minimal unit tests for the ConfigManager and SqlPool classes. Add smoke tests for the MCP tools to ensure that they are working as expected.",
+        "details": "1. Add unit tests for the ConfigManager class to test loading, saving, adding, updating, and removing configurations.\n2. Add unit tests for the SqlPool class to test getting, evicting, reconciling, and closing connections.\n3. Add smoke tests for the MCP tools to ensure that they are working as expected.",
+        "testStrategy": "Run all unit tests and smoke tests to ensure that they pass.",
+        "priority": "low",
+        "dependencies": [
+          2,
+          3,
+          4,
+          5,
+          6
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 9,
+        "title": "Improve Error Handling and Logging",
+        "description": "Implement error handling and logging improvements. Provide clear, actionable errors when a database is missing or unknown. Avoid logging sensitive URIs.",
+        "details": "1. Implement error handling to provide clear, actionable errors when a database is missing or unknown.\n2. Include the known database names in the error message.\n3. Avoid logging sensitive URIs.\n4. Consider redacting credentials in list outputs in future iterations.",
+        "testStrategy": "1. Manually test error handling to ensure that clear, actionable errors are returned when a database is missing or unknown.\n2. Verify that sensitive URIs are not logged.",
+        "priority": "medium",
+        "dependencies": [
+          4,
+          5
+        ],
+        "status": "pending",
+        "subtasks": []
+      },
+      {
+        "id": 10,
+        "title": "Refactor Code",
+        "description": "Refactor the code to improve readability, maintainability, and testability. Address any code smells or potential issues identified during development.",
+        "details": "1. Review the code for readability, maintainability, and testability.\n2. Address any code smells or potential issues identified during development.\n3. Refactor the code to improve its overall quality.",
+        "testStrategy": "Manually review the code to ensure that it is readable, maintainable, and testable.",
+        "priority": "low",
+        "dependencies": [
+          2,
+          3
+        ],
+        "status": "pending",
+        "subtasks": []
+      }
+    ],
+    "metadata": {
+      "created": "2025-08-12T14:13:48.436Z",
+      "updated": "2025-08-12T14:31:43.723Z",
+      "description": "Tasks for master context"
+    }
+  }
+}
