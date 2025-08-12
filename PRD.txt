@@ -1,0 +1,135 @@
+<context>
+# Overview
+pg-mcp will add first-class multi-database support for Postgres. Today it relies on a single POSTGRES_URL. The goal is to support multiple databases (tenants/environments) configured via a JSON file, manage that config through MCP tools, and route all existing Postgres tools to a selected database through a lazy connection pool. This is for developers and operators using MCP-compatible IDEs/agents who need to target different Postgres instances without restarting or rebuilding. It’s valuable because it centralizes DB configuration, enables safe runtime switching, and improves reliability with validated config, pooling, and auto-reload.
+
+# Core Features
+- Config file source with environment-configurable path
+  - Replace POSTGRES_URL usage with a JSON config at PG_MCP_CONFIG_PATH, defaulting to $HOME/.config/pg-mcp/config.json.
+  - JSON includes databases.{name}.uri and ttl, plus a global autoReload flag.
+  - Validate with zod; create directories as needed; atomic writes.
+
+- Config management tools (MCP)
+  - pg_db_list, pg_db_add, pg_db_update, pg_db_remove, and pg_db_reload.
+  - Allow creating, updating, removing entries, listing current databases, and reloading from disk.
+
+- Lazy SQL client pool keyed by database name
+  - Create Bun SQL clients on demand, cache with lastUsed timestamps and per-entry ttl seconds.
+  - Evict on removal/updates and via an idle reaper; close clients properly.
+  - Reconcile the pool on config changes (remove/refresh updated clients).
+
+- Update existing Postgres tools to accept a database parameter
+  - All existing pg_* tools accept { database: string } and obtain a client via the pool.
+  - Backward compatibility: if database is omitted and config has exactly one DB, auto-select it; otherwise instruct the user to specify a database.
+
+- Auto-reload support
+  - Optional FS watch if autoReload is true; on changes, reload the config and reconcile the pool (debounced).
+
+- Backward compatibility and migration
+  - If no config exists but POSTGRES_URL is set, bootstrap a config with a default entry and autoReload: true.
+
+# User Experience
+- Personas
+  - Backend/Infra engineers who configure multiple Postgres instances (prod/staging/dev/tenants).
+  - AI-powered IDE/agent users invoking MCP tools that must target a specific database.
+
+- Key user flows
+  1) Initial setup: create config (auto-migrated from POSTGRES_URL if present) or run pg_db_add to register databases.
+  2) Day-to-day: call existing pg_* tools with a database argument; if only one DB exists, the database parameter is optional.
+  3) Ongoing config changes: use pg_db_update/remove or edit the JSON file; if autoReload is on, changes apply without restart; otherwise run pg_db_reload.
+
+- UI/UX considerations
+  - Clear, actionable errors when database is missing or unknown (include known names in the message).
+  - Consider redacting credentials in list outputs in future iterations; avoid logging sensitive URIs.
+  - Keep tool argument schemas consistent and succinct.
+</context>
+
+<PRD>
+# Technical Architecture
+- System components
+  - ConfigManager (src/config.ts): loads, validates, saves JSON config; optional FS watch; exposes CRUD helpers.
+  - SqlPool (src/sqlPool.ts): lazy-create Bun SQL clients per database; tracks lastUsed and ttl; supports evict/reconcile/closeAll; idle reaper.
+  - MCP tools: new pg_db_list/add/update/remove/reload; existing pg_* tools updated to accept database and to acquire clients via the pool.
+
+- Data models
+  - type DbEntry = { uri: string; ttl: number }
+  - type Config = { databases: Record<string, DbEntry>; autoReload: boolean }
+  - Zod schemas: DbEntrySchema and ConfigSchema with defaults and validation.
+
+- APIs and integrations
+  - Bun SQL for Postgres connections; confirm correct close method (end() vs close()).
+  - Node fs/promises and fs.watch (or Bun equivalents) for config persistence and watching.
+  - Environment variables: PG_MCP_CONFIG_PATH; optional POSTGRES_URL for migration.
+
+- Infrastructure requirements
+  - File system access to $HOME/.config/pg-mcp/ (default) or a custom path.
+  - No additional services beyond Postgres instances themselves.
+
+# Development Roadmap
+- MVP requirements
+  - Implement ConfigManager with load/get/save/list/add/update/remove and atomic writes; default path + migration from POSTGRES_URL; validation via zod.
+  - Implement SqlPool with get/evict/reconcile/closeAll and an idle reaper.
+  - Update all existing Postgres MCP tools to accept database and to use SqlPool; provide single-DB auto-select for compatibility.
+  - Add new MCP tools: pg_db_list, pg_db_add, pg_db_update, pg_db_remove, pg_db_reload.
+  - Minimal README updates covering config path, schema, tools, and usage.
+
+- Future enhancements
+  - Auto-reload watch with debounce; pool reconcile on change.
+  - Redaction of credentials in outputs; secure logging patterns.
+  - Expanded tests (unit for ConfigManager/SqlPool; smoke tests for tools). 
+  - Config schema extensions (e.g., per-DB pool settings) and better error classes.
+  - Telemetry/log levels and tunable reaper interval.
+
+- Do not think about timelines whatsoever — focus on scope and exact deliverables as above.
+
+# Logical Dependency Chain
+1) Establish configuration path resolution and JSON schema; implement ConfigManager with migration and validation.
+2) Implement SqlPool (get, touch, evict, reconcile, idle reaper; verify Bun SQL close method) and wire TTL semantics.
+3) Wire the pool into src/index.ts; update all existing pg_* tools to accept database and fetch clients via the pool; provide single-DB defaulting.
+4) Implement new config management MCP tools; ensure evict/reconcile behavior on update/remove; implement explicit pg_db_reload.
+5) Add optional FS watch auto-reload; debounce and reconcile the pool on changes if enabled.
+6) Update README; add minimal tests and a manual smoke test checklist.
+
+- Fast path to visible functionality
+  - After steps 1–3, users can immediately run pg_list_schemas or other tools with a database parameter and see results; management tools and auto-reload refine the experience.
+
+# Risks and Mitigations
+- Uncertain Bun SQL close method (end vs close): confirm via docs or quick probe; encapsulate in a helper to change in one place.
+- Sensitive credentials in URIs: avoid logging full URIs; consider optional redaction in pg_db_list in a later iteration.
+- File watch thrashing: debounce watch events; allow manual pg_db_reload as a fallback.
+- Backward compatibility: support migration from POSTGRES_URL and single-DB auto-select when database is omitted.
+- Atomicity and corruption: use atomic writes (tmp+rename) and schema validation before saving.
+- Resource leaks: ensure evict() calls client.close/end and delete from map; implement closeAll() at shutdown.
+- Live updates while clients in use: on update, evict so next get() recreates; communicate that long-lived operations should be resilient.
+- Misconfigured TTLs: provide defaults and schema constraints (positive integers) and document recommended values.
+
+# Appendix
+- Example config JSON
+  {
+    "databases": {
+      "default": {
+        "uri": "postgresql://user:password@host:5432/db",
+        "ttl": 600
+      },
+      "analytics": {
+        "uri": "postgresql://user:password@host:5432/analytics",
+        "ttl": 1200
+      }
+    },
+    "autoReload": true
+  }
+
+- New MCP tools (initial spec)
+  - pg_db_list — args: none; returns { databases: Record<string, DbEntry> }.
+  - pg_db_add — args: { name: string; uri: string; ttl?: number }; default ttl=600; reconcile after save.
+  - pg_db_update — args: { name: string; uri?: string; ttl?: number }; evict(name) after save.
+  - pg_db_remove — args: { name: string }; evict(name) after save.
+  - pg_db_reload — args: none; reload from disk and pool.reconcile(newConfig).
+
+- Updated existing tools (signature changes)
+  - All existing pg_* tools accept { database: string, ... } and use await pool.get(database).
+  - Optional compatibility: if database is omitted and exactly one DB is configured, auto-select it; otherwise error with guidance.
+
+- Environment variables
+  - PG_MCP_CONFIG_PATH: path to config file; default $HOME/.config/pg-mcp/config.json.
+  - POSTGRES_URL: only used for one-time migration when config file is missing.
+</PRD>
