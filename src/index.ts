@@ -83,12 +83,11 @@ if (!config) throw new Error("Config file not found");
   });
 }
 const dbNames = Object.keys(config.databases);
-if (dbNames.length === 0) throw new Error("No databases configured");
-// Default to the first configured database
-const defaultDbName = dbNames[0]!;
+// Allow empty database configuration
+const defaultDbName = dbNames.length > 0 ? dbNames[0]! : undefined;
 const singleDb = dbNames.length === 1;
 // Test default connection if only one database configured
-if (singleDb) {
+if (singleDb && defaultDbName) {
   const { url } = config.databases[defaultDbName]!;
   const client = pool.get(url);
   await client`select 1`;
@@ -109,14 +108,21 @@ server.tool(
     try {
       // Determine database name
       const name = database ?? (singleDb ? defaultDbName : undefined);
-      if (!name)
-        throw new Error(
-          `Multiple databases are configured: ${dbNames.join(
-            ", "
-          )}. Please specify the database using the ` +
-            "`database`" +
-            ` parameter.`
-        );
+      if (!name) {
+        if (dbNames.length === 0) {
+          throw new Error(
+            "No databases are configured. Please add a database configuration first."
+          );
+        } else {
+          throw new Error(
+            `Multiple databases are configured: ${dbNames.join(
+              ", "
+            )}. Please specify the database using the ` +
+              "`database`" +
+              ` parameter.`
+          );
+        }
+      }
       const { url } = await getConfig(name);
       const client = pool.get(url);
       return textResult(pgGetServerVersion(client));
@@ -135,14 +141,21 @@ server.tool(
   async ({ database }) => {
     try {
       const name = database ?? (singleDb ? defaultDbName : undefined);
-      if (!name)
-        throw new Error(
-          `Multiple databases are configured: ${dbNames.join(
-            ", "
-          )}. Please specify the database using the ` +
-            "`database`" +
-            ` parameter.`
-        );
+      if (!name) {
+        if (dbNames.length === 0) {
+          throw new Error(
+            "No databases are configured. Please add a database configuration first."
+          );
+        } else {
+          throw new Error(
+            `Multiple databases are configured: ${dbNames.join(
+              ", "
+            )}. Please specify the database using the ` +
+              "`database`" +
+              ` parameter.`
+          );
+        }
+      }
       const { url } = await getConfig(name);
       return textResult(redactCredentials(url));
     } catch (error) {
@@ -160,14 +173,21 @@ server.tool(
   async ({ database }) => {
     try {
       const name = database ?? (singleDb ? defaultDbName : undefined);
-      if (!name)
-        throw new Error(
-          `Multiple databases are configured: ${dbNames.join(
-            ", "
-          )}. Please specify the database using the ` +
-            "`database`" +
-            ` parameter.`
-        );
+      if (!name) {
+        if (dbNames.length === 0) {
+          throw new Error(
+            "No databases are configured. Please add a database configuration first."
+          );
+        } else {
+          throw new Error(
+            `Multiple databases are configured: ${dbNames.join(
+              ", "
+            )}. Please specify the database using the ` +
+              "`database`" +
+              ` parameter.`
+          );
+        }
+      }
       const { url } = await getConfig(name);
       const client = pool.get(url);
       return textResult(pgListSchemas(client));
@@ -191,14 +211,21 @@ server.tool(
     try {
       if (!schema) throw new Error("Schema is required");
       const name = database ?? (singleDb ? defaultDbName : undefined);
-      if (!name)
-        throw new Error(
-          `Multiple databases are configured: ${dbNames.join(
-            ", "
-          )}. Please specify the database using the ` +
-            "`database`" +
-            ` parameter.`
-        );
+      if (!name) {
+        if (dbNames.length === 0) {
+          throw new Error(
+            "No databases are configured. Please add a database configuration first."
+          );
+        } else {
+          throw new Error(
+            `Multiple databases are configured: ${dbNames.join(
+              ", "
+            )}. Please specify the database using the ` +
+              "`database`" +
+              ` parameter.`
+          );
+        }
+      }
       const { url } = await getConfig(name);
       const client = pool.get(url);
       return textResult(pgListTables(client, schema));
@@ -218,14 +245,21 @@ server.tool(
     try {
       if (!schema || !table) throw new Error("Schema and table are required");
       const name = database ?? (singleDb ? defaultDbName : undefined);
-      if (!name)
-        throw new Error(
-          `Multiple databases are configured: ${dbNames.join(
-            ", "
-          )}. Please specify the database using the ` +
-            "`database`" +
-            ` parameter.`
-        );
+      if (!name) {
+        if (dbNames.length === 0) {
+          throw new Error(
+            "No databases are configured. Please add a database configuration first."
+          );
+        } else {
+          throw new Error(
+            `Multiple databases are configured: ${dbNames.join(
+              ", "
+            )}. Please specify the database using the ` +
+              "`database`" +
+              ` parameter.`
+          );
+        }
+      }
       const { url } = await getConfig(name);
       const client = pool.get(url);
       const columns = await pgListTableColumns(client, table, schema);
@@ -264,14 +298,21 @@ server.tool(
     try {
       if (!query) throw new Error("Query is required");
       const name = database ?? (singleDb ? defaultDbName : undefined);
-      if (!name)
-        throw new Error(
-          `Multiple databases are configured: ${dbNames.join(
-            ", "
-          )}. Please specify the database using the ` +
-            "`database`" +
-            ` parameter.`
-        );
+      if (!name) {
+        if (dbNames.length === 0) {
+          throw new Error(
+            "No databases are configured. Please add a database configuration first."
+          );
+        } else {
+          throw new Error(
+            `Multiple databases are configured: ${dbNames.join(
+              ", "
+            )}. Please specify the database using the ` +
+              "`database`" +
+              ` parameter.`
+          );
+        }
+      }
       const { url } = await getConfig(name);
       const client = pool.get(url);
       const result = await executeReadOnlyQuery(client, query);
@@ -296,6 +337,20 @@ server.prompt(
       const { schema, tables } = args;
       if (!schema || !tables) {
         throw new Error("Schema and tables are required for type generation");
+      }
+      if (dbNames.length === 0) {
+        return {
+          description: "No databases configured",
+          messages: [
+            {
+              role: "user",
+              content: {
+                type: "text",
+                text: "Error: No databases are configured. Please add a database configuration first.",
+              },
+            },
+          ],
+        };
       }
       const tableList = tables.split(",").map((table) => table.trim());
       return {
