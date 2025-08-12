@@ -3,11 +3,10 @@ export async function removeDatabase(name: string): Promise<void> {
   if (!config) {
     throw new Error("Config file not found");
   }
-  const idx = config.databases.findIndex((db) => db.name === name);
-  if (idx === -1) {
+  if (!config.databases[name]) {
     throw new Error(`Database name '${name}' not found`);
   }
-  config.databases.splice(idx, 1);
+  delete config.databases[name];
   await saveConfig(config);
 }
 export async function updateDatabase(
@@ -18,18 +17,17 @@ export async function updateDatabase(
   if (!config) {
     throw new Error("Config file not found");
   }
-  const idx = config.databases.findIndex((db) => db.name === name);
-  if (idx === -1) {
+  if (!config.databases[name]) {
     throw new Error(`Database name '${name}' not found`);
   }
-  const updated = { ...config.databases[idx], ...update, name };
+  const updated = { ...config.databases[name], ...update };
   const result = DbEntrySchema.safeParse(updated);
   if (!result.success) {
     throw new Error(
       "Invalid updated database config: " + JSON.stringify(result.error.issues)
     );
   }
-  config.databases[idx] = result.data;
+  config.databases[name] = result.data;
   await saveConfig(config);
 }
 export async function addDatabase(
@@ -40,7 +38,7 @@ export async function addDatabase(
   if (!config) {
     throw new Error("Config file not found");
   }
-  if (config.databases.some((db) => db.name === name)) {
+  if (config.databases[name]) {
     throw new Error(`Database name '${name}' already exists`);
   }
   const result = DbEntrySchema.safeParse(dbConfig);
@@ -49,7 +47,7 @@ export async function addDatabase(
       "Invalid database config: " + JSON.stringify(result.error.issues)
     );
   }
-  config.databases.push({ ...result.data, name });
+  config.databases[name] = result.data;
   await saveConfig(config);
 }
 import { promises as fs } from "fs";
@@ -64,36 +62,20 @@ const DEFAULT_CONFIG_PATH = path.join(
 );
 const CONFIG_PATH = process.env.PG_MCP_CONFIG_PATH || DEFAULT_CONFIG_PATH;
 
-// DbEntry type and schema
-export type DbEntry = {
-  name: string;
-  host: string;
-  port: number;
-  user: string;
-  password?: string;
-  database: string;
-  ssl?: boolean;
-  url?: string;
-};
-
 export const DbEntrySchema = z.object({
-  name: z.string(),
-  host: z.string(),
-  port: z.number().int().min(1),
-  user: z.string(),
-  password: z.string().optional(),
-  database: z.string(),
-  ssl: z.boolean().optional(),
-  url: z.string().url().optional(),
+  url: z.string().url(),
+  ttl: z.number().min(0).default(60000),
 });
+
+export type DbEntry = z.infer<typeof DbEntrySchema>;
 
 // Config type and schema
 export type Config = {
-  databases: DbEntry[];
+  databases: Record<string, DbEntry>;
 };
 
 export const ConfigSchema = z.object({
-  databases: z.array(DbEntrySchema),
+  databases: z.record(DbEntrySchema),
 });
 
 export async function saveConfig(config: Config): Promise<void> {
@@ -128,20 +110,11 @@ export async function loadConfig(): Promise<Config | null> {
       if (pgUrl) {
         // Parse the URL
         try {
-          const parsedUrl = new URL(pgUrl);
-          const user = parsedUrl.username;
-          const password = parsedUrl.password;
           const dbEntry: DbEntry = {
-            name: "default",
-            host: parsedUrl.hostname,
-            port: Number(parsedUrl.port) || 5432,
-            user: user,
-            password: password || undefined,
-            database: parsedUrl.pathname.replace(/^\//, ""),
-            ssl: parsedUrl.searchParams.get("ssl") === "true",
             url: pgUrl,
+            ttl: 60000,
           };
-          const config: Config = { databases: [dbEntry] };
+          const config: Config = { databases: { default: dbEntry } };
           await saveConfig(config);
           return config;
         } catch (parseErr) {
@@ -159,7 +132,7 @@ export async function getConfig(name: string): Promise<DbEntry> {
   if (!config) {
     throw new Error("Config file not found");
   }
-  const db = config.databases.find((d) => d.name === name);
+  const db = config.databases[name];
   if (!db) {
     throw new Error(`Database config '${name}' not found`);
   }
@@ -177,7 +150,7 @@ export async function listDatabases(): Promise<DbEntry[]> {
   if (!config) {
     throw new Error("Config file not found");
   }
-  return config.databases.map((db) => {
+  return Object.values(config.databases).map((db) => {
     const result = DbEntrySchema.safeParse(db);
     if (!result.success) {
       throw new Error(

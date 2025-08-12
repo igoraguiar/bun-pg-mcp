@@ -112,8 +112,74 @@
         "dependencies": [
           2
         ],
-        "status": "pending",
-        "subtasks": []
+        "status": "done",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Implement SqlPool.get()",
+            "description": "Implement the `get(database: string)` method to retrieve a Bun SQL client from the pool. Create a new client if one doesn't exist for the given database.",
+            "dependencies": [],
+            "details": "Implement the logic to check if a client exists in the pool for the given database. If it does, return it. If not, create a new Bun SQL client, add it to the pool, and return it.\n<info added on 2025-08-12T14:46:20.133Z>\n- Create src/sqlPool.ts and define the SqlPool class.\n- Add a private pool object to store Bun SQL clients by database name.\n- Implement get(database: string):\n  - If a client for the database exists in the pool, return it.\n  - If not, create a new Bun SQL client, add it to the pool, and return it.\n- Ensure the method updates lastUsed timestamp for the connection.\n- Prepare for integration with TTL and idle reaper logic in later subtasks.\n</info added on 2025-08-12T14:46:20.133Z>",
+            "status": "done",
+            "testStrategy": ""
+          },
+          {
+            "id": 2,
+            "title": "Implement SqlPool.evict()",
+            "description": "Implement the `evict(database: string)` method to remove a client from the pool and close the database connection.",
+            "dependencies": [],
+            "details": "Implement the logic to remove the client associated with the given database from the pool. Ensure that `Bun.SQL.end()` is called on the client to properly close the connection.\n<info added on 2025-08-12T14:46:43.099Z>\n- Add evict(database: string) method to SqlPool.\n- If a client exists for the database in the pool, call Bun.SQL.end() on the client to close the connection.\n- Remove the client entry from the pool.\n- Ensure safe handling if the client does not exist (no-op).\n</info added on 2025-08-12T14:46:43.099Z>",
+            "status": "done",
+            "testStrategy": ""
+          },
+          {
+            "id": 3,
+            "title": "Implement SqlPool.reconcile()",
+            "description": "Implement the `reconcile(newConfig: Config)` method to update the pool based on a new configuration.",
+            "dependencies": [],
+            "details": "Implement the logic to compare the current pool configuration with the new configuration. Add new databases to the pool, update existing database connections, and evict databases that are no longer in the configuration.\n<info added on 2025-08-12T14:47:07.719Z>\n- Add reconcile(newConfig: Config) method to SqlPool.\n- Compare current pool databases with those in newConfig.\n- For databases in newConfig but not in the pool, create and add new clients.\n- For databases removed from newConfig, evict them using evict().\n- For databases present in both, update connections if configuration has changed (if applicable).\n- Ensure safe handling and efficient updates.\n</info added on 2025-08-12T14:47:07.719Z>",
+            "status": "done",
+            "testStrategy": ""
+          },
+          {
+            "id": 4,
+            "title": "Implement SqlPool.closeAll()",
+            "description": "Implement the `closeAll()` method to close all connections in the pool.",
+            "dependencies": [],
+            "details": "Iterate through all clients in the pool and call `Bun.SQL.end()` on each client to properly close the connections. Clear the pool after closing all connections.\n<info added on 2025-08-12T14:49:08.281Z>\n- Add closeAll() method to SqlPool.\n- Iterate through all clients in the pool and call Bun.SQL.end() on each client to close connections.\n- Clear the pool after closing all connections to release resources.\n</info added on 2025-08-12T14:49:08.281Z>",
+            "status": "done",
+            "testStrategy": ""
+          },
+          {
+            "id": 5,
+            "title": "Implement Idle Reaper",
+            "description": "Implement an idle reaper that periodically checks for inactive connections (based on `lastUsed` and `ttl`) and closes them.",
+            "dependencies": [],
+            "details": "Implement a background process that runs periodically. This process should iterate through the clients in the pool, check their `lastUsed` timestamp against the configured `ttl`, and close any connections that have been idle for too long using `evict()`.\n<info added on 2025-08-12T14:49:30.557Z>\n- Add an idle reaper mechanism to SqlPool that runs periodically (e.g., setInterval).\n- For each client in the pool, check if current time - lastUsed > TTL.\n- If so, evict the client using evict().\n- TTL should be configurable (will be handled in a later subtask).\n- Ensure the reaper can be started and stopped cleanly.\n</info added on 2025-08-12T14:49:30.557Z>",
+            "status": "done",
+            "testStrategy": ""
+          },
+          {
+            "id": 6,
+            "title": "Implement lastUsed Timestamp Tracking",
+            "description": "Track the `lastUsed` timestamp for each connection in the pool.",
+            "dependencies": [
+              "3.1"
+            ],
+            "details": "Update the `lastUsed` timestamp whenever a connection is retrieved from the pool using the `get()` method.\n<info added on 2025-08-12T14:49:58.922Z>\n- Ensure lastUsed is updated every time a connection is retrieved from the pool using get().\n- Confirm that the logic in get() already updates lastUsed for existing connections.\n- No further changes needed unless additional usage points are identified.\n</info added on 2025-08-12T14:49:58.922Z>",
+            "status": "done",
+            "testStrategy": ""
+          },
+          {
+            "id": 7,
+            "title": "Implement TTL Configuration",
+            "description": "Configure and manage the TTL (Time To Live) for database connections.",
+            "dependencies": [],
+            "details": "Ensure that the TTL is configurable through the `Config` object. Use this TTL value in the idle reaper to determine when to close inactive connections.\n<info added on 2025-08-12T14:50:11.328Z>\nImplementation plan for TTL configuration:\n- Make the TTL (Time To Live) for idle connections configurable via the SqlPool constructor or a setter method.\n- Use the configured TTL value in the idle reaper logic.\n- Document the configuration option for users of SqlPool.\n</info added on 2025-08-12T14:50:11.328Z>",
+            "status": "done",
+            "testStrategy": ""
+          }
+        ]
       },
       {
         "id": 4,
@@ -219,7 +285,7 @@
     ],
     "metadata": {
       "created": "2025-08-12T14:13:48.436Z",
-      "updated": "2025-08-12T14:41:41.379Z",
+      "updated": "2025-08-12T14:50:28.864Z",
       "description": "Tasks for master context"
     }
   }
