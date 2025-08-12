@@ -88,6 +88,7 @@ export async function saveConfig(config: Config): Promise<void> {
   }
   const tmpPath = CONFIG_PATH + ".tmp";
   try {
+    await ensureConfigFolderExists();
     await fs.writeFile(tmpPath, JSON.stringify(config, null, 2), "utf8");
     await fs.rename(tmpPath, CONFIG_PATH);
   } catch (err: any) {
@@ -109,24 +110,24 @@ export async function loadConfig(): Promise<Config | null> {
       // File not found
       // Migration logic: check POSTGRES_URL
       const pgUrl = process.env.POSTGRES_URL;
-      if (pgUrl) {
-        // Parse the URL
-        try {
-          const dbEntry: DbEntry = {
-            url: pgUrl,
-            ttl: 60000,
-          };
-          const config: Config = {
-            databases: { default: dbEntry },
-            autoReload: true,
-          };
-          await saveConfig(config);
-          return config;
-        } catch (parseErr) {
-          throw new Error(`Failed to parse POSTGRES_URL: ${parseErr}`);
-        }
+
+      // Parse the URL
+      try {
+        const dbEntry = pgUrl
+          ? {
+              url: pgUrl,
+              ttl: 60000,
+            }
+          : null;
+        const config: Config = {
+          databases: dbEntry ? { default: dbEntry } : {},
+          autoReload: true,
+        };
+        await saveConfig(config);
+        return config;
+      } catch (parseErr) {
+        throw new Error(`Failed to create default config: ${parseErr}`);
       }
-      return null;
     }
     throw new Error(`Failed to load config: ${err.message}`);
   }
@@ -174,4 +175,8 @@ export async function listDatabases(): Promise<DbEntry[]> {
     }
     return result.data;
   });
+}
+
+function ensureConfigFolderExists() {
+  return fs.mkdir(path.dirname(CONFIG_PATH), { recursive: true });
 }
