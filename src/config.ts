@@ -2,17 +2,23 @@ import { promises as fs } from "fs";
 import path from "path";
 import { z } from "zod";
 
-const DEFAULT_CONFIG_PATH = path.join(
-  process.env.HOME || "",
-  ".config",
-  "pg-mcp",
-  "config.json"
-);
-export const CONFIG_PATH =
-  process.env.PG_MCP_CONFIG_PATH || DEFAULT_CONFIG_PATH;
+export function resolveConfigPath(customPath?: string): string {
+  if (customPath) {
+    return customPath;
+  }
+  const DEFAULT_CONFIG_PATH = path.join(
+    process.env.HOME || "",
+    ".config",
+    "pg-mcp",
+    "config.json"
+  );
+
+  const configPath = process.env.PG_MCP_CONFIG_PATH || DEFAULT_CONFIG_PATH;
+  return configPath;
+}
 
 export const DbEntrySchema = z.object({
-  url: z.string().url(),
+  url: z.string(),
   ttl: z.number().min(0).default(60000),
 });
 
@@ -25,148 +31,169 @@ export const ConfigSchema = z.object({
 
 export type Config = z.infer<typeof ConfigSchema>;
 
-export async function removeDatabase(name: string): Promise<void> {
-  const config = await loadConfig();
-  if (!config) {
-    throw new Error("Config file not found");
-  }
-  if (!config.databases[name]) {
-    throw new Error(`Database name '${name}' not found`);
-  }
-  delete config.databases[name];
-  await saveConfig(config);
-}
+export class ConfigManager {
+  private configPath: string;
 
-export async function updateDatabase(
-  name: string,
-  update: Partial<DbEntry>
-): Promise<void> {
-  const config = await loadConfig();
-  if (!config) {
-    throw new Error("Config file not found");
+  constructor(configPath: string = resolveConfigPath()) {
+    this.configPath = configPath;
   }
-  if (!config.databases[name]) {
-    throw new Error(`Database name '${name}' not found`);
-  }
-  const updated = { ...config.databases[name], ...update };
-  const result = DbEntrySchema.safeParse(updated);
-  if (!result.success) {
-    throw new Error(
-      "Invalid updated database config: " + JSON.stringify(result.error.issues)
-    );
-  }
-  config.databases[name] = result.data;
-  await saveConfig(config);
-}
 
-export async function addDatabase(
-  name: string,
-  dbConfig: DbEntry
-): Promise<void> {
-  const config = await loadConfig();
-  if (!config) {
-    throw new Error("Config file not found");
+  /**
+   * Returns the configuration file path
+   */
+  getConfigPath(): string {
+    return this.configPath;
   }
-  if (config.databases[name]) {
-    throw new Error(`Database name '${name}' already exists`);
-  }
-  const result = DbEntrySchema.safeParse(dbConfig);
-  if (!result.success) {
-    throw new Error(
-      "Invalid database config: " + JSON.stringify(result.error.issues)
-    );
-  }
-  config.databases[name] = result.data;
-  await saveConfig(config);
-}
 
-export async function saveConfig(config: Config): Promise<void> {
-  // Validate before saving
-  const result = ConfigSchema.safeParse(config);
-  if (!result.success) {
-    throw new Error("Invalid config: " + JSON.stringify(result.error.issues));
+  /**
+   * Ensures the configuration folder exists
+   */
+  private async ensureConfigFolderExists(): Promise<void> {
+    await fs.mkdir(path.dirname(this.configPath), { recursive: true });
   }
-  const tmpPath = CONFIG_PATH + ".tmp";
-  try {
-    await ensureConfigFolderExists();
-    await fs.writeFile(tmpPath, JSON.stringify(config, null, 2), "utf8");
-    await fs.rename(tmpPath, CONFIG_PATH);
-  } catch (err: any) {
-    throw new Error(`Failed to save config: ${err.message}`);
-  }
-}
 
-export async function loadConfig(): Promise<Config | null> {
-  try {
-    const data = await fs.readFile(CONFIG_PATH, "utf8");
-    const parsed = JSON.parse(data);
-    const result = ConfigSchema.safeParse(parsed);
+  /**
+   * Loads the configuration from file
+   */
+  async loadConfig(): Promise<Config | null> {
+    try {
+      const data = await fs.readFile(this.configPath, "utf8");
+      const parsed = JSON.parse(data);
+      const result = ConfigSchema.safeParse(parsed);
+      if (!result.success) {
+        throw new Error(
+          "Invalid config: " + JSON.stringify(result.error.issues)
+        );
+      }
+      return result.data;
+    } catch (err: any) {
+      if (err.code === "ENOENT") {
+        // File not found
+        // Migration logic: check POSTGRES_URL
+        const pgUrl = process.env.POSTGRES_URL;
+
+        // Parse the URL
+        try {
+          const dbEntry = pgUrl
+            ? {
+                url: pgUrl,
+                ttl: 60000,
+              }
+            : null;
+          const config: Config = {
+            databases: dbEntry ? { default: dbEntry } : {},
+            autoReload: true,
+          };
+          await this.saveConfig(config);
+          return config;
+        } catch (parseErr) {
+          throw new Error(`Failed to create default config: ${parseErr}`);
+        }
+      }
+      throw new Error(`Failed to load config: ${err.message}`);
+    }
+  }
+
+  /**
+   * Saves the configuration to file
+   */
+  async saveConfig(config: Config): Promise<void> {
+    // Validate before saving
+    const result = ConfigSchema.safeParse(config);
     if (!result.success) {
       throw new Error("Invalid config: " + JSON.stringify(result.error.issues));
     }
-    return result.data;
-  } catch (err: any) {
-    if (err.code === "ENOENT") {
-      // File not found
-      // Migration logic: check POSTGRES_URL
-      const pgUrl = process.env.POSTGRES_URL;
-
-      // Parse the URL
-      try {
-        const dbEntry = pgUrl
-          ? {
-              url: pgUrl,
-              ttl: 60000,
-            }
-          : null;
-        const config: Config = {
-          databases: dbEntry ? { default: dbEntry } : {},
-          autoReload: true,
-        };
-        await saveConfig(config);
-        return config;
-      } catch (parseErr) {
-        throw new Error(`Failed to create default config: ${parseErr}`);
-      }
+    const tmpPath = this.configPath + ".tmp";
+    try {
+      await this.ensureConfigFolderExists();
+      await fs.writeFile(tmpPath, JSON.stringify(config, null, 2), "utf8");
+      await fs.rename(tmpPath, this.configPath);
+    } catch (err: any) {
+      throw new Error(`Failed to save config: ${err.message}`);
     }
-    throw new Error(`Failed to load config: ${err.message}`);
   }
-}
 
-export async function getConfig(name: string): Promise<DbEntry> {
-  const config = await loadConfig();
-  if (!config) {
-    throw new Error("Config file not found");
-  }
-  const db = config.databases[name];
-  if (!db) {
-    const knownDatabases = Object.keys(config.databases);
-    if (knownDatabases.length === 0) {
+  /**
+   * Adds a new database to the configuration
+   */
+  async addDatabase(name: string, dbConfig: DbEntry): Promise<void> {
+    const config = await this.loadConfig();
+    if (!config) {
+      throw new Error("Config file not found");
+    }
+    if (config.databases[name]) {
+      throw new Error(`Database name '${name}' already exists`);
+    }
+    const result = DbEntrySchema.safeParse(dbConfig);
+    if (!result.success) {
       throw new Error(
-        "No databases are configured. Please add a database configuration first."
+        "Invalid database config: " + JSON.stringify(result.error.issues)
       );
     }
-    throw new Error(
-      `Database '${name}' not found. Available databases: ${knownDatabases.join(
-        ", "
-      )}`
-    );
+    config.databases[name] = result.data;
+    await this.saveConfig(config);
   }
-  const result = DbEntrySchema.safeParse(db);
-  if (!result.success) {
-    throw new Error(
-      "Invalid database config: " + JSON.stringify(result.error.issues)
-    );
-  }
-  return result.data;
-}
 
-export async function listDatabases(): Promise<DbEntry[]> {
-  const config = await loadConfig();
-  if (!config) {
-    throw new Error("Config file not found");
+  /**
+   * Updates an existing database configuration
+   */
+  async updateDatabase(name: string, update: Partial<DbEntry>): Promise<void> {
+    const config = await this.loadConfig();
+    if (!config) {
+      throw new Error("Config file not found");
+    }
+    if (!config.databases[name]) {
+      throw new Error(`Database name '${name}' not found`);
+    }
+    const updated = { ...config.databases[name], ...update };
+    const result = DbEntrySchema.safeParse(updated);
+    if (!result.success) {
+      throw new Error(
+        "Invalid updated database config: " +
+          JSON.stringify(result.error.issues)
+      );
+    }
+    config.databases[name] = result.data;
+    await this.saveConfig(config);
   }
-  return Object.values(config.databases).map((db) => {
+
+  /**
+   * Removes a database from the configuration
+   */
+  async removeDatabase(name: string): Promise<void> {
+    const config = await this.loadConfig();
+    if (!config) {
+      throw new Error("Config file not found");
+    }
+    if (!config.databases[name]) {
+      throw new Error(`Database name '${name}' not found`);
+    }
+    delete config.databases[name];
+    await this.saveConfig(config);
+  }
+
+  /**
+   * Gets a specific database configuration
+   */
+  async getConfig(name: string): Promise<DbEntry> {
+    const config = await this.loadConfig();
+    if (!config) {
+      throw new Error("Config file not found");
+    }
+    const db = config.databases[name];
+    if (!db) {
+      const knownDatabases = Object.keys(config.databases);
+      if (knownDatabases.length === 0) {
+        throw new Error(
+          "No databases are configured. Please add a database configuration first."
+        );
+      }
+      throw new Error(
+        `Database '${name}' not found. Available databases: ${knownDatabases.join(
+          ", "
+        )}`
+      );
+    }
     const result = DbEntrySchema.safeParse(db);
     if (!result.success) {
       throw new Error(
@@ -174,9 +201,65 @@ export async function listDatabases(): Promise<DbEntry[]> {
       );
     }
     return result.data;
-  });
+  }
+
+  /**
+   * Lists all database configurations
+   */
+  async listDatabases(): Promise<DbEntry[]> {
+    const config = await this.loadConfig();
+    if (!config) {
+      throw new Error("Config file not found");
+    }
+    return Object.values(config.databases).map((db) => {
+      const result = DbEntrySchema.safeParse(db);
+      if (!result.success) {
+        throw new Error(
+          "Invalid database config: " + JSON.stringify(result.error.issues)
+        );
+      }
+      return result.data;
+    });
+  }
 }
 
-function ensureConfigFolderExists() {
-  return fs.mkdir(path.dirname(CONFIG_PATH), { recursive: true });
+// Create a default instance for backward compatibility
+const defaultConfigManager = new ConfigManager();
+
+// Export functions for backward compatibility
+export async function loadConfig(): Promise<Config | null> {
+  return defaultConfigManager.loadConfig();
 }
+
+export async function saveConfig(config: Config): Promise<void> {
+  return defaultConfigManager.saveConfig(config);
+}
+
+export async function addDatabase(
+  name: string,
+  dbConfig: DbEntry
+): Promise<void> {
+  return defaultConfigManager.addDatabase(name, dbConfig);
+}
+
+export async function updateDatabase(
+  name: string,
+  update: Partial<DbEntry>
+): Promise<void> {
+  return defaultConfigManager.updateDatabase(name, update);
+}
+
+export async function removeDatabase(name: string): Promise<void> {
+  return defaultConfigManager.removeDatabase(name);
+}
+
+export async function getConfig(name: string): Promise<DbEntry> {
+  return defaultConfigManager.getConfig(name);
+}
+
+export async function listDatabases(): Promise<DbEntry[]> {
+  return defaultConfigManager.listDatabases();
+}
+
+// Export the class as well for new usage
+// (ConfigManager is already exported above)
