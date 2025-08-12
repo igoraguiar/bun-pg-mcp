@@ -228,6 +228,24 @@ export class ConfigManager {
     });
   }
 
+  async getDatabase(name: string): Promise<DbEntry | null> {
+    const config = await this.loadConfig();
+    if (!config) {
+      throw new Error("Config file not found");
+    }
+    const db = config.databases[name];
+    if (!db) {
+      return null;
+    }
+    const result = DbEntrySchema.safeParse(db);
+    if (!result.success) {
+      throw new Error(
+        "Invalid database config: " + JSON.stringify(result.error.issues)
+      );
+    }
+    return result.data;
+  }
+
   /**
    * Starts watching the configuration file for changes
    * @param callback Function to call when config changes and autoReload is enabled
