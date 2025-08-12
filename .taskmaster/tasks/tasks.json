@@ -22,15 +22,15 @@
         "dependencies": [
           1
         ],
-        "status": "in-progress",
+        "status": "done",
         "subtasks": [
           {
             "id": 1,
             "title": "Implement loadConfig() and saveConfig()",
             "description": "Implement `loadConfig()` to read the config from `PG_MCP_CONFIG_PATH` (defaulting to `$HOME/.config/pg-mcp/config.json`) and `saveConfig()` using atomic writes (tmp file + rename).",
             "dependencies": [],
-            "details": "Use `fs/promises` for file operations. Ensure proper error handling for file read/write operations.",
-            "status": "in-progress",
+            "details": "Use `fs/promises` for file operations. Ensure proper error handling for file read/write operations.\n<info added on 2025-08-12T14:32:21.004Z>\n- Create src/config.ts if it does not exist.\n- Use fs/promises for file operations.\n- Implement loadConfig():\n  - Read config from PG_MCP_CONFIG_PATH (default: $HOME/.config/pg-mcp/config.json).\n  - Handle file not found and parse errors.\n- Implement saveConfig():\n  - Write config atomically (write to tmp file, then rename).\n  - Ensure proper error handling for write failures.\n- Use Zod schemas for validation (to be implemented in subtask 2.7).\n- Prepare for migration logic (subtask 2.6).\n\nNext: Begin coding src/config.ts with these methods and error handling.\n</info added on 2025-08-12T14:32:21.004Z>\n<info added on 2025-08-12T14:32:46.071Z>\n```\n<info added on 2025-08-15T09:12:34.004Z>\n- Created src/config.ts.\n- Implemented loadConfig() to read config from PG_MCP_CONFIG_PATH (default: $HOME/.config/pg-mcp/config.json), with error handling for file not found and parse errors.\n- Implemented saveConfig() with atomic write (tmp file + rename), including error handling for write failures.\n- Used fs/promises for all file operations.\nNext: Continue with subtasks for config management and validation.\n</info added on 2025-08-15T09:12:34.004Z>\n```\n</info added on 2025-08-12T14:32:46.071Z>",
+            "status": "done",
             "testStrategy": ""
           },
           {
@@ -40,8 +40,8 @@
             "dependencies": [
               "2.1"
             ],
-            "details": "Ensure proper error handling when a database configuration is not found.",
-            "status": "pending",
+            "details": "Ensure proper error handling when a database configuration is not found.\n<info added on 2025-08-12T14:33:29.896Z>\n- Add getConfig(name: string): returns a specific DbEntry from config, throws if not found.\n- Add listDatabases(): returns all DbEntry objects from config.\n- Use Zod validation to ensure returned objects are valid.\n- Handle errors for missing config or missing database name.\nNext: Add these methods to src/config.ts.\n</info added on 2025-08-12T14:33:29.896Z>\n<info added on 2025-08-12T14:33:49.957Z>\n```\n<info added on 2025-08-12T14:34:29.896Z>\n- Added getConfig(name: string) to retrieve a specific DbEntry from config, with error handling for missing config or database name.\n- Added listDatabases() to return all DbEntry objects from config, validating each with Zod.\n- Both methods ensure returned objects are valid and errors are handled appropriately.\nNext: Continue with addDatabase implementation.\n</info added on 2025-08-12T14:34:29.896Z>\n```\n</info added on 2025-08-12T14:33:49.957Z>",
+            "status": "done",
             "testStrategy": ""
           },
           {
@@ -52,8 +52,8 @@
               "2.1",
               "2.2"
             ],
-            "details": "Validate the configuration using Zod before saving. Ensure that the database name is unique.",
-            "status": "pending",
+            "details": "Validate the configuration using Zod before saving. Ensure that the database name is unique.\n<info added on 2025-08-12T14:37:19.105Z>\n- Implement addDatabase(name: string, config: DbEntry):\n  - Load current config.\n  - Check if database name already exists; throw error if not unique.\n  - Validate config with DbEntrySchema.\n  - Add new DbEntry to config.databases.\n  - Save updated config using saveConfig().\nNext: Add addDatabase to src/config.ts.\n</info added on 2025-08-12T14:37:19.105Z>\n<info added on 2025-08-12T14:37:45.809Z>\n- Implemented addDatabase(name, dbConfig) in src/config.ts.\n- Ensures database name is unique before adding.\n- Validates dbConfig with Zod schema.\n- Adds new DbEntry to config and saves updated config.\nNext: Continue with updateDatabase implementation.\n</info added on 2025-08-12T14:37:45.809Z>",
+            "status": "done",
             "testStrategy": ""
           },
           {
@@ -64,8 +64,8 @@
               "2.1",
               "2.2"
             ],
-            "details": "Validate the updated configuration using Zod before saving. Ensure that the database name exists.",
-            "status": "pending",
+            "details": "Validate the updated configuration using Zod before saving. Ensure that the database name exists.\n<info added on 2025-08-12T14:39:07.470Z>\n- Implement updateDatabase(name: string, config: Partial<DbEntry>):\n  - Load current config.\n  - Find database by name; throw error if not found.\n  - Merge existing DbEntry with provided config.\n  - Validate updated entry with DbEntrySchema.\n  - Replace entry in config.databases and save.\nNext: Add updateDatabase to src/config.ts.\n</info added on 2025-08-12T14:39:07.470Z>\n<info added on 2025-08-12T14:39:20.676Z>\n- Implemented updateDatabase(name, update) in src/config.ts.\n- Finds database by name, merges with update, validates with Zod.\n- Replaces entry in config and saves updated config.\nNext: Continue with removeDatabase implementation.\n</info added on 2025-08-12T14:39:20.676Z>",
+            "status": "done",
             "testStrategy": ""
           },
           {
@@ -76,8 +76,8 @@
               "2.1",
               "2.2"
             ],
-            "details": "Ensure that the database name exists before removing.",
-            "status": "pending",
+            "details": "Ensure that the database name exists before removing.\n<info added on 2025-08-12T14:41:24.004Z>\n- Implement removeDatabase(name: string):\n  - Load current config.\n  - Find database by name; throw error if not found.\n  - Remove entry from config.databases.\n  - Save updated config using saveConfig().\nNext: Add removeDatabase to src/config.ts.\n</info added on 2025-08-12T14:41:24.004Z>\n<info added on 2025-08-12T14:41:36.622Z>\n- Implemented removeDatabase(name) in src/config.ts.\n- Finds database by name, removes entry, saves updated config.\nNext: All subtasks for ConfigManager are now implemented. Ready to mark subtasks and main task as done.\n</info added on 2025-08-12T14:41:36.622Z>",
+            "status": "done",
             "testStrategy": ""
           },
           {
@@ -87,8 +87,8 @@
             "dependencies": [
               "2.1"
             ],
-            "details": "Create a default configuration based on the `POSTGRES_URL` environment variable.",
-            "status": "pending",
+            "details": "Create a default configuration based on the `POSTGRES_URL` environment variable.\n<info added on 2025-08-12T14:35:07.423Z>\n- In loadConfig(), if config file does not exist and process.env.POSTGRES_URL is set, create a default config using POSTGRES_URL.\n- Parse POSTGRES_URL to extract connection details (host, port, user, password, database, ssl).\n- Save the default config to CONFIG_PATH using saveConfig().\n- Return the default config from loadConfig().\nNext: Add migration logic to loadConfig in src/config.ts.\n</info added on 2025-08-12T14:35:07.423Z>\n<info added on 2025-08-12T14:35:54.645Z>\n- Added migration logic to loadConfig: if config file does not exist and POSTGRES_URL is set, parses POSTGRES_URL and creates a default config.\n- Fixed bug: removed reference to parsedUrl.auth, now uses parsedUrl.username and parsedUrl.password only.\n- Ensured saveConfig is defined before loadConfig.\n- Default config is saved and returned if migration occurs.\nNext: Continue with addDatabase implementation.\n</info added on 2025-08-12T14:35:54.645Z>",
+            "status": "done",
             "testStrategy": ""
           },
           {
@@ -96,8 +96,8 @@
             "title": "Implement Zod Schema Validation",
             "description": "Define `DbEntry` and `Config` types and corresponding Zod schemas (`DbEntrySchema`, `ConfigSchema`).",
             "dependencies": [],
-            "details": "Ensure that all configuration values are properly validated using the Zod schemas.",
-            "status": "pending",
+            "details": "Ensure that all configuration values are properly validated using the Zod schemas.\n<info added on 2025-08-12T14:32:55.976Z>\n- Define DbEntry and Config types in src/config.ts.\n- Create Zod schemas: DbEntrySchema and ConfigSchema.\n- Use these schemas to validate configuration objects in loadConfig, addDatabase, updateDatabase, etc.\n- Ensure all configuration values are properly validated before saving or using them.\nNext: Add type definitions and Zod schemas to src/config.ts.\n</info added on 2025-08-12T14:32:55.976Z>\n<info added on 2025-08-12T14:33:19.483Z>\n- Added DbEntry and Config types to src/config.ts.\n- Implemented DbEntrySchema and ConfigSchema using Zod.\n- Updated loadConfig and saveConfig to validate configuration objects using Zod schemas.\n- All configuration values are now validated before use or save.\nNext: Continue with database config management methods.\n</info added on 2025-08-12T14:33:19.483Z>",
+            "status": "done",
             "testStrategy": ""
           }
         ]
@@ -219,7 +219,7 @@
     ],
     "metadata": {
       "created": "2025-08-12T14:13:48.436Z",
-      "updated": "2025-08-12T14:31:43.723Z",
+      "updated": "2025-08-12T14:41:41.379Z",
       "description": "Tasks for master context"
     }
   }
