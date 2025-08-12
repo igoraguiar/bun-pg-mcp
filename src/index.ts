@@ -2,8 +2,6 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
 import { resolve } from "path";
-import * as fs from "fs";
-import { CONFIG_PATH } from "./config";
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
 import { SqlPool } from "./sqlPool";
 import {
@@ -12,6 +10,7 @@ import {
   addDatabase,
   updateDatabase,
   removeDatabase,
+  ConfigManager,
 } from "./config";
 import {
   pgGetServerVersion,
@@ -60,28 +59,17 @@ if (envFileExists) {
 const pool = new SqlPool();
 const config = await loadConfig();
 if (!config) throw new Error("Config file not found");
-// Watch configuration file and reconcile pool if autoReload is enabled
-{
-  const DEBOUNCE_MS = 100;
-  let reloadTimer: NodeJS.Timeout;
-  fs.watch(CONFIG_PATH, (_eventType, _filename) => {
-    // Debounce and handle change events
-    clearTimeout(reloadTimer);
-    reloadTimer = setTimeout(async () => {
-      try {
-        const newConfig = await loadConfig();
-        // Only reconcile when autoReload flag is true
-        if (newConfig?.autoReload) {
-          pool.reconcile(newConfig);
-        }
-      } catch {
-        console.error(
-          "Auto-reload error: Configuration file could not be reloaded"
-        );
-      }
-    }, DEBOUNCE_MS);
-  });
-}
+
+// Initialize ConfigManager and start watching for config changes
+const configManager = new ConfigManager();
+configManager.startWatching((newConfig) => {
+  try {
+    // Reconcile pool when config changes and autoReload is enabled
+    pool.reconcile(newConfig);
+  } catch (error) {
+    console.error("Auto-reload error: Failed to reconcile SqlPool", error);
+  }
+});
 const dbNames = Object.keys(config.databases);
 // Allow empty database configuration
 const defaultDbName = dbNames.length > 0 ? dbNames[0]! : undefined;
@@ -390,7 +378,7 @@ server.prompt(
 
 // Add new MCP tool: list configured databases
 server.tool("pg_db_list", "List configured databases", {}, async () => {
-  const config = await loadConfig();
+  const config = await configManager.loadConfig();
   if (!config) throw new Error("Config file not found");
   const databases = Object.entries(config.databases).map(([name, db]) => ({
     name,
@@ -425,9 +413,9 @@ server.tool(
   },
   async ({ name, url, ttl = 60000 }) => {
     try {
-      await addDatabase(name, { url, ttl });
+      await configManager.addDatabase(name, { url, ttl });
       // Reconcile pool after addition
-      const newConfig = await loadConfig();
+      const newConfig = await configManager.loadConfig();
       if (!newConfig) throw new Error("Config file not found");
       pool.reconcile(newConfig);
       return textResult({ name, url: redactCredentials(url), ttl });
@@ -452,10 +440,10 @@ server.tool(
       const update: Partial<{ url: string; ttl: number }> = {};
       if (url !== undefined) update.url = url;
       if (ttl !== undefined) update.ttl = ttl;
-      await updateDatabase(name, update);
+      await configManager.updateDatabase(name, update);
       // Evict and reconcile pool after update
       pool.evict(name);
-      const updatedConfig = await loadConfig();
+      const updatedConfig = await configManager.loadConfig();
       if (!updatedConfig) throw new Error("Config file not found");
       pool.reconcile(updatedConfig);
       return textResult({
@@ -477,10 +465,10 @@ server.tool(
   { name: z.string() },
   async ({ name }) => {
     try {
-      await removeDatabase(name);
+      await configManager.removeDatabase(name);
       // Evict and reconcile pool after removal
       pool.evict(name);
-      const remConfig = await loadConfig();
+      const remConfig = await configManager.loadConfig();
       if (!remConfig) throw new Error("Config file not found");
       pool.reconcile(remConfig);
       return textResult({ name });
@@ -499,7 +487,7 @@ server.tool(
   {},
   async () => {
     try {
-      const config = await loadConfig();
+      const config = await configManager.loadConfig();
       if (!config) throw new Error("Config file not found");
       pool.reconcile(config);
       return textResult(Object.keys(config.databases));

@@ -1,6 +1,7 @@
 import { promises as fs } from "fs";
 import path from "path";
 import { z } from "zod";
+import * as fsSync from "fs";
 
 export function resolveConfigPath(customPath?: string): string {
   if (customPath) {
@@ -32,24 +33,29 @@ export const ConfigSchema = z.object({
 export type Config = z.infer<typeof ConfigSchema>;
 
 export class ConfigManager {
-  private configPath: string;
+  private watcher: fsSync.FSWatcher | null = null;
+  private reloadCallback: ((config: Config) => void) | null = null;
+  private DEBOUNCE_MS = 100;
+  private reloadTimer: NodeJS.Timeout | null = null;
 
-  constructor(configPath: string = resolveConfigPath()) {
-    this.configPath = configPath;
-  }
+  constructor(
+    private configPath: string | (() => string) = resolveConfigPath
+  ) {}
 
   /**
    * Returns the configuration file path
    */
   getConfigPath(): string {
-    return this.configPath;
+    return typeof this.configPath === "function"
+      ? this.configPath()
+      : this.configPath;
   }
 
   /**
    * Ensures the configuration folder exists
    */
   private async ensureConfigFolderExists(): Promise<void> {
-    await fs.mkdir(path.dirname(this.configPath), { recursive: true });
+    await fs.mkdir(path.dirname(this.getConfigPath()), { recursive: true });
   }
 
   /**
@@ -57,7 +63,7 @@ export class ConfigManager {
    */
   async loadConfig(): Promise<Config | null> {
     try {
-      const data = await fs.readFile(this.configPath, "utf8");
+      const data = await fs.readFile(this.getConfigPath(), "utf8");
       const parsed = JSON.parse(data);
       const result = ConfigSchema.safeParse(parsed);
       if (!result.success) {
@@ -107,7 +113,7 @@ export class ConfigManager {
     try {
       await this.ensureConfigFolderExists();
       await fs.writeFile(tmpPath, JSON.stringify(config, null, 2), "utf8");
-      await fs.rename(tmpPath, this.configPath);
+      await fs.rename(tmpPath, this.getConfigPath());
     } catch (err: any) {
       throw new Error(`Failed to save config: ${err.message}`);
     }
@@ -220,6 +226,60 @@ export class ConfigManager {
       }
       return result.data;
     });
+  }
+
+  /**
+   * Starts watching the configuration file for changes
+   * @param callback Function to call when config changes and autoReload is enabled
+   */
+  startWatching(callback: (config: Config) => void): void {
+    // Stop any existing watcher
+    this.stopWatching();
+
+    // Set the callback
+    this.reloadCallback = callback;
+
+    // Create new watcher
+    this.watcher = fsSync.watch(
+      this.getConfigPath(),
+      (_eventType, _filename) => {
+        // Debounce and handle change events
+        if (this.reloadTimer) {
+          clearTimeout(this.reloadTimer);
+        }
+
+        this.reloadTimer = setTimeout(async () => {
+          try {
+            const newConfig = await this.loadConfig();
+            // Only call callback when autoReload flag is true
+            if (newConfig?.autoReload && this.reloadCallback) {
+              this.reloadCallback(newConfig);
+            }
+          } catch {
+            console.error(
+              "Auto-reload error: Configuration file could not be reloaded"
+            );
+          }
+        }, this.DEBOUNCE_MS);
+      }
+    );
+  }
+
+  /**
+   * Stops watching the configuration file
+   */
+  stopWatching(): void {
+    if (this.watcher) {
+      this.watcher.close();
+      this.watcher = null;
+    }
+
+    if (this.reloadTimer) {
+      clearTimeout(this.reloadTimer);
+      this.reloadTimer = null;
+    }
+
+    this.reloadCallback = null;
   }
 }
 
