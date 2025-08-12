@@ -192,8 +192,45 @@
           3,
           2
         ],
-        "status": "pending",
-        "subtasks": []
+        "status": "done",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Modify Tools to Accept Database Parameter",
+            "description": "Modify existing pg_* tools to accept a `{ database: string, ... }` argument, allowing users to specify the database to connect to.",
+            "dependencies": [],
+            "details": "Update the argument parsing logic of each tool to include the `database` parameter. Ensure the parameter is optional.\n<info added on 2025-08-12T15:43:12.413Z>\nModified all pg_* tool schemas and handlers to accept an optional `database` parameter as per subtask definition. Adjusted server.tool calls to include `database: z.string().optional()` and signature parameters accordingly.\n</info added on 2025-08-12T15:43:12.413Z>",
+            "status": "done",
+            "testStrategy": ""
+          },
+          {
+            "id": 2,
+            "title": "Use SqlPool to Obtain Database Connections",
+            "description": "Use `await pool.get(database)` to obtain a Bun SQL client for the specified database.",
+            "dependencies": [],
+            "details": "Replace the existing database connection logic with calls to `pool.get(database)`. Ensure proper error handling if the database is not found in the pool.\n<info added on 2025-08-12T15:43:45.710Z>\nUsed `pool.get(url)` in each tool handler to obtain a SQL client, replacing direct `SQL` usage. Verified connections for default and per-request DBs.\n</info added on 2025-08-12T15:43:45.710Z>",
+            "status": "done",
+            "testStrategy": ""
+          },
+          {
+            "id": 3,
+            "title": "Implement Single-Database Auto-Selection",
+            "description": "Implement logic to auto-select the database if the `database` parameter is omitted and exactly one database is configured.",
+            "dependencies": [],
+            "details": "Check if the `database` parameter is omitted. If so, check the number of configured databases. If exactly one is configured, automatically select it.\n<info added on 2025-08-12T15:44:20.066Z>\nImplemented auto-selection logic: if only one database is configured, default to it when `database` parameter is omitted.\n</info added on 2025-08-12T15:44:20.066Z>",
+            "status": "done",
+            "testStrategy": ""
+          },
+          {
+            "id": 4,
+            "title": "Handle Multiple-Database Error",
+            "description": "Return an error if the `database` parameter is omitted and multiple databases are configured, instructing the user to specify a database.",
+            "dependencies": [],
+            "details": "If the `database` parameter is omitted and multiple databases are configured, return a clear error message to the user, explaining that they must specify the database using the `--database` parameter.\n<info added on 2025-08-12T15:48:35.275Z>\nImproved error handling: when multiple databases are configured and `database` parameter is omitted, throw an error listing available database names and instruct user to specify `database` parameter.\n</info added on 2025-08-12T15:48:35.275Z>",
+            "status": "done",
+            "testStrategy": ""
+          }
+        ]
       },
       {
         "id": 5,
@@ -206,8 +243,80 @@
           2,
           3
         ],
-        "status": "pending",
-        "subtasks": []
+        "status": "in-progress",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Implement `pg_db_list`",
+            "description": "Implement the `pg_db_list` tool to list all configured databases.",
+            "dependencies": [],
+            "details": "Implement the command-line interface and logic to retrieve and display all database configurations from the ConfigManager.",
+            "status": "pending",
+            "testStrategy": ""
+          },
+          {
+            "id": 2,
+            "title": "Implement `pg_db_add`",
+            "description": "Implement the `pg_db_add` tool to add a new database configuration.",
+            "dependencies": [],
+            "details": "Implement the command-line interface and logic to add a new database configuration to the ConfigManager.",
+            "status": "pending",
+            "testStrategy": ""
+          },
+          {
+            "id": 3,
+            "title": "Implement `pg_db_update`",
+            "description": "Implement the `pg_db_update` tool to update an existing database configuration.",
+            "dependencies": [],
+            "details": "Implement the command-line interface and logic to update an existing database configuration in the ConfigManager.",
+            "status": "pending",
+            "testStrategy": ""
+          },
+          {
+            "id": 4,
+            "title": "Implement `pg_db_remove`",
+            "description": "Implement the `pg_db_remove` tool to remove a database configuration.",
+            "dependencies": [],
+            "details": "Implement the command-line interface and logic to remove a database configuration from the ConfigManager.",
+            "status": "pending",
+            "testStrategy": ""
+          },
+          {
+            "id": 5,
+            "title": "Implement `pg_db_reload`",
+            "description": "Implement the `pg_db_reload` tool to reload the configuration from disk.",
+            "dependencies": [],
+            "details": "Implement the command-line interface and logic to reload the configuration from disk using the ConfigManager.",
+            "status": "pending",
+            "testStrategy": ""
+          },
+          {
+            "id": 6,
+            "title": "Implement SqlPool `evict()` on Update/Remove",
+            "description": "Ensure that `evict()` is called on the SqlPool when a database is updated or removed.",
+            "dependencies": [
+              "5.3",
+              "5.4"
+            ],
+            "details": "Modify the `pg_db_update` and `pg_db_remove` implementations to call `evict()` on the SqlPool for the corresponding database.",
+            "status": "pending",
+            "testStrategy": ""
+          },
+          {
+            "id": 7,
+            "title": "Implement SqlPool `reconcile()` on Reload/Modify",
+            "description": "Ensure that `reconcile()` is called on the SqlPool after the configuration is reloaded or modified.",
+            "dependencies": [
+              "5.2",
+              "5.3",
+              "5.4",
+              "5.5"
+            ],
+            "details": "Modify the `pg_db_add`, `pg_db_update`, `pg_db_remove`, and `pg_db_reload` implementations to call `reconcile()` on the SqlPool after the configuration is modified.",
+            "status": "pending",
+            "testStrategy": ""
+          }
+        ]
       },
       {
         "id": 6,
@@ -285,7 +394,7 @@
     ],
     "metadata": {
       "created": "2025-08-12T14:13:48.436Z",
-      "updated": "2025-08-12T14:50:28.864Z",
+      "updated": "2025-08-12T15:51:36.799Z",
       "description": "Tasks for master context"
     }
   }

@@ -6,8 +6,10 @@ import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js"
 import type { argv } from "bun";
 import { z } from "zod";
 import { resolve } from "path";
-import { SQL } from "bun";
+// Removed unused import of SQL; using SqlPool instead
 import type { CallToolResult } from "@modelcontextprotocol/sdk/types.js";
+import { SqlPool } from "./sqlPool";
+import { loadConfig, getConfig } from "./config";
 import {
   pgGetServerVersion,
   pgListSchemas,
@@ -57,9 +59,21 @@ if (!postgresUrl) {
     `POSTGRES_URL environment variable is not set: cwd=${cwd}, envFile=${envFile}, envFileExists=${envFileExists}`
   );
 }
-const pg = new SQL(postgresUrl, {});
-
-await pg`select 1`;
+// Initialize connection pool using configured databases
+const pool = new SqlPool();
+const config = await loadConfig();
+if (!config) throw new Error("Config file not found");
+const dbNames = Object.keys(config.databases);
+if (dbNames.length === 0) throw new Error("No databases configured");
+// Default to the first configured database
+const defaultDbName = dbNames[0]!;
+const singleDb = dbNames.length === 1;
+// Test default connection if only one database configured
+if (singleDb) {
+  const { url } = config.databases[defaultDbName]!;
+  const client = pool.get(url);
+  await client`select 1`;
+}
 
 // Create an MCP server
 const server = new McpServer({
@@ -71,9 +85,21 @@ const server = new McpServer({
 server.tool(
   "pg_get_server_version",
   "Retrieves PostgreSQL version",
-  {},
-  async () => {
-    return textResult(pgGetServerVersion(pg));
+  { database: z.string().optional() },
+  async ({ database }) => {
+    // Determine database name
+    const name = database ?? (singleDb ? defaultDbName : undefined);
+    if (!name)
+      throw new Error(
+        `Multiple databases are configured: ${dbNames.join(
+          ", "
+        )}. Please specify the database using the ` +
+          "`database`" +
+          ` parameter.`
+      );
+    const { url } = await getConfig(name);
+    const client = pool.get(url);
+    return textResult(pgGetServerVersion(client));
   }
 );
 
@@ -81,38 +107,70 @@ server.tool("get_url", "Retrieves PostgreSQL connection URL", {}, async () => {
   return textResult(postgresUrl);
 });
 
-server.tool("pg_list_schemas", "List PostgreSQL schemas", {}, async () => {
-  return textResult(pgListSchemas(pg));
-});
+server.tool(
+  "pg_list_schemas",
+  "List PostgreSQL schemas",
+  { database: z.string().optional() },
+  async ({ database }) => {
+    const name = database ?? (singleDb ? defaultDbName : undefined);
+    if (!name)
+      throw new Error(
+        `Multiple databases are configured: ${dbNames.join(
+          ", "
+        )}. Please specify the database using the ` +
+          "`database`" +
+          ` parameter.`
+      );
+    const { url } = await getConfig(name);
+    const client = pool.get(url);
+    return textResult(pgListSchemas(client));
+  }
+);
 
 const pgTablesArgsSchema = {
   schema: z.string(),
+  database: z.string().optional(),
 };
 server.tool(
   "pg_list_tables",
   "List PostgreSQL tables",
   pgTablesArgsSchema,
-  async ({ schema }) => {
-    if (!schema) {
-      throw new Error("Schema is required");
-    }
-    return textResult(pgListTables(pg, schema));
+  async ({ schema, database }) => {
+    if (!schema) throw new Error("Schema is required");
+    const name = database ?? (singleDb ? defaultDbName : undefined);
+    if (!name)
+      throw new Error(
+        `Multiple databases are configured: ${dbNames.join(
+          ", "
+        )}. Please specify the database using the ` +
+          "`database`" +
+          ` parameter.`
+      );
+    const { url } = await getConfig(name);
+    const client = pool.get(url);
+    return textResult(pgListTables(client, schema));
   }
 );
 
 server.tool(
   "pg_describe_table",
   "Get PostgreSQL table details",
-  {
-    schema: z.string(),
-    table: z.string(),
-  },
-  async ({ schema, table }) => {
-    if (!schema || !table) {
-      throw new Error("Schema and table are required");
-    }
-    const columns = await pgListTableColumns(pg, table, schema);
-    const foreignKeys = await pgListTableForeignKeys(pg, table, schema);
+  { schema: z.string(), table: z.string(), database: z.string().optional() },
+  async ({ schema, table, database }) => {
+    if (!schema || !table) throw new Error("Schema and table are required");
+    const name = database ?? (singleDb ? defaultDbName : undefined);
+    if (!name)
+      throw new Error(
+        `Multiple databases are configured: ${dbNames.join(
+          ", "
+        )}. Please specify the database using the ` +
+          "`database`" +
+          ` parameter.`
+      );
+    const { url } = await getConfig(name);
+    const client = pool.get(url);
+    const columns = await pgListTableColumns(client, table, schema);
+    const foreignKeys = await pgListTableForeignKeys(client, table, schema);
     const result: PgTableDetails = {
       schema_name: schema,
       table_name: table,
@@ -137,14 +195,21 @@ server.tool(
 server.tool(
   "pg_execute_query",
   "Execute a read-only SQL query",
-  {
-    query: z.string(),
-  },
-  async ({ query }) => {
-    if (!query) {
-      throw new Error("Query is required");
-    }
-    const result = await executeReadOnlyQuery(pg, query);
+  { query: z.string(), database: z.string().optional() },
+  async ({ query, database }) => {
+    if (!query) throw new Error("Query is required");
+    const name = database ?? (singleDb ? defaultDbName : undefined);
+    if (!name)
+      throw new Error(
+        `Multiple databases are configured: ${dbNames.join(
+          ", "
+        )}. Please specify the database using the ` +
+          "`database`" +
+          ` parameter.`
+      );
+    const { url } = await getConfig(name);
+    const client = pool.get(url);
+    const result = await executeReadOnlyQuery(client, query);
     return textResult(result);
   }
 );
@@ -156,7 +221,7 @@ server.prompt(
     schema: z.string().optional(),
     tables: z.string().optional(),
   },
-  async (args, extra) => {
+  async (args) => {
     const { schema, tables } = args;
     if (!schema || !tables) {
       throw new Error("Schema and tables are required for type generation");
