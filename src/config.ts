@@ -60,7 +60,8 @@ const DEFAULT_CONFIG_PATH = path.join(
   "pg-mcp",
   "config.json"
 );
-const CONFIG_PATH = process.env.PG_MCP_CONFIG_PATH || DEFAULT_CONFIG_PATH;
+export const CONFIG_PATH =
+  process.env.PG_MCP_CONFIG_PATH || DEFAULT_CONFIG_PATH;
 
 export const DbEntrySchema = z.object({
   url: z.string().url(),
@@ -72,10 +73,13 @@ export type DbEntry = z.infer<typeof DbEntrySchema>;
 // Config type and schema
 export type Config = {
   databases: Record<string, DbEntry>;
+  /** Enable auto reload of config on file changes */
+  autoReload?: boolean;
 };
 
 export const ConfigSchema = z.object({
   databases: z.record(DbEntrySchema),
+  autoReload: z.boolean().default(false),
 });
 
 export async function saveConfig(config: Config): Promise<void> {
