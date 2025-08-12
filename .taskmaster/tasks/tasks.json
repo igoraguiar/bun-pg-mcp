@@ -384,8 +384,51 @@
         "dependencies": [
           2
         ],
-        "status": "pending",
-        "subtasks": []
+        "status": "done",
+        "subtasks": [
+          {
+            "id": 1,
+            "title": "Document Configuration Path",
+            "description": "Update the README to include information about the `PG_MCP_CONFIG_PATH` environment variable and how it affects configuration file location.",
+            "dependencies": [],
+            "details": "Explain the purpose of the `PG_MCP_CONFIG_PATH` environment variable, its default behavior, and provide an example of how to set it.",
+            "status": "done",
+            "testStrategy": ""
+          },
+          {
+            "id": 2,
+            "title": "Document Configuration Schema",
+            "description": "Document the configuration schema with field descriptions and provide valid examples.",
+            "dependencies": [],
+            "details": "Include a clear breakdown of the configuration structure, types, and required/optional fields. Provide at least one full example configuration.",
+            "status": "done",
+            "testStrategy": ""
+          },
+          {
+            "id": 3,
+            "title": "Describe MCP Tools and Usage",
+            "description": "Describe the new and updated MCP tools, including their parameters and usage examples.",
+            "dependencies": [
+              "7.2"
+            ],
+            "details": "Detail each tool's functionality, input parameters (especially the new `database` parameter), and sample invocations. Reference the configuration schema where applicable.",
+            "status": "done",
+            "testStrategy": ""
+          },
+          {
+            "id": 4,
+            "title": "Provide Configuration and Usage Instructions",
+            "description": "Write step-by-step instructions on how to configure and use the pg-mcp tool.",
+            "dependencies": [
+              "7.1",
+              "7.2",
+              "7.3"
+            ],
+            "details": "Combine all previous documentation into a coherent guide covering setup, configuration, environment variables, and tool usage. Include troubleshooting tips for common issues.",
+            "status": "done",
+            "testStrategy": ""
+          }
+        ]
       },
       {
         "id": 8,
@@ -415,15 +458,15 @@
           4,
           5
         ],
-        "status": "pending",
+        "status": "done",
         "subtasks": [
           {
             "id": 1,
             "title": "Implement Clear Error Messages for Missing/Unknown Databases",
             "description": "Implement error handling to provide clear, actionable errors when a database is missing or unknown. Include the known database names in the error message.",
             "dependencies": [],
-            "details": "Modify the database connection logic to check if the requested database exists in the configuration. If not, return an error message that includes the list of known database names.",
-            "status": "pending",
+            "details": "Modify the database connection logic to check if the requested database exists in the configuration. If not, return an error message that includes the list of known database names.\n<info added on 2025-08-12T16:48:19.291Z>\nImplemented clear error messages for missing/unknown databases. Updated the getConfig function to include known database names in error messages when a database is not found. Also improved error handling in all MCP tools to provide better user feedback.\n</info added on 2025-08-12T16:48:19.291Z>",
+            "status": "done",
             "testStrategy": ""
           },
           {
@@ -431,8 +474,8 @@
             "title": "Avoid Logging Sensitive URIs",
             "description": "Prevent sensitive URIs from being logged to prevent exposure of credentials or other sensitive information.",
             "dependencies": [],
-            "details": "Review all logging statements that include URIs and redact any sensitive information, such as passwords or API keys, before logging. Consider using a whitelist approach to only log specific URI components.",
-            "status": "pending",
+            "details": "Review all logging statements that include URIs and redact any sensitive information, such as passwords or API keys, before logging. Consider using a whitelist approach to only log specific URI components.\n<info added on 2025-08-12T16:49:03.960Z>\nImplemented credential redaction in URLs to prevent exposure of sensitive information. Updated the get_url tool to redact passwords from PostgreSQL URLs before returning them. Also updated console.error statements to avoid logging sensitive information.\n</info added on 2025-08-12T16:49:03.960Z>",
+            "status": "done",
             "testStrategy": ""
           },
           {
@@ -442,8 +485,8 @@
             "dependencies": [
               "9.1"
             ],
-            "details": "Ensure that all MCP tools (`pg_db_list`, `pg_db_add`, `pg_db_update`, `pg_db_remove`, `pg_db_reload`) have proper error handling to catch exceptions and return user-friendly error messages. This includes handling database connection errors, configuration errors, and validation errors.",
-            "status": "pending",
+            "details": "Ensure that all MCP tools (`pg_db_list`, `pg_db_add`, `pg_db_update`, `pg_db_remove`, `pg_db_reload`) have proper error handling to catch exceptions and return user-friendly error messages. This includes handling database connection errors, configuration errors, and validation errors.\n<info added on 2025-08-12T16:50:33.479Z>\nImplemented proper error handling for all MCP tools. Updated all tools to include try-catch blocks and return consistent error messages. Also improved the gen_types prompt to handle errors gracefully.\n</info added on 2025-08-12T16:50:33.479Z>",
+            "status": "done",
             "testStrategy": ""
           },
           {
@@ -451,8 +494,8 @@
             "title": "Redact Credentials in List Outputs",
             "description": "Implement credential redaction in list outputs to prevent exposure of sensitive information when listing database configurations.",
             "dependencies": [],
-            "details": "Modify the `pg_db_list` tool to redact credentials (e.g., passwords) from the output. Replace sensitive information with placeholders or masked values.",
-            "status": "pending",
+            "details": "Modify the `pg_db_list` tool to redact credentials (e.g., passwords) from the output. Replace sensitive information with placeholders or masked values.\n<info added on 2025-08-12T16:49:24.224Z>\nImplemented credential redaction in list outputs. Updated the pg_db_list tool to redact passwords from URLs in the output. Also updated pg_db_add, pg_db_update, and get_url tools to redact credentials before returning them to users.\n</info added on 2025-08-12T16:49:24.224Z>",
+            "status": "done",
             "testStrategy": ""
           }
         ]
@@ -474,7 +517,7 @@
     ],
     "metadata": {
       "created": "2025-08-12T14:13:48.436Z",
-      "updated": "2025-08-12T16:24:08.928Z",
+      "updated": "2025-08-12T17:47:29.920Z",
       "description": "Tasks for master context"
     }
   }

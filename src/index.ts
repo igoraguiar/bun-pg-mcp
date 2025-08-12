@@ -80,8 +80,10 @@ if (!config) throw new Error("Config file not found");
         if (newConfig?.autoReload) {
           pool.reconcile(newConfig);
         }
-      } catch (err) {
-        console.error("Auto-reload error:", err);
+      } catch {
+        console.error(
+          "Auto-reload error: Configuration file could not be reloaded"
+        );
       }
     }, DEBOUNCE_MS);
   });
@@ -110,24 +112,36 @@ server.tool(
   "Retrieves PostgreSQL version",
   { database: z.string().optional() },
   async ({ database }) => {
-    // Determine database name
-    const name = database ?? (singleDb ? defaultDbName : undefined);
-    if (!name)
-      throw new Error(
-        `Multiple databases are configured: ${dbNames.join(
-          ", "
-        )}. Please specify the database using the ` +
-          "`database`" +
-          ` parameter.`
-      );
-    const { url } = await getConfig(name);
-    const client = pool.get(url);
-    return textResult(pgGetServerVersion(client));
+    try {
+      // Determine database name
+      const name = database ?? (singleDb ? defaultDbName : undefined);
+      if (!name)
+        throw new Error(
+          `Multiple databases are configured: ${dbNames.join(
+            ", "
+          )}. Please specify the database using the ` +
+            "`database`" +
+            ` parameter.`
+        );
+      const { url } = await getConfig(name);
+      const client = pool.get(url);
+      return textResult(pgGetServerVersion(client));
+    } catch (error) {
+      return textResult({
+        error: error instanceof Error ? error.message : "Unknown error",
+      });
+    }
   }
 );
 
 server.tool("get_url", "Retrieves PostgreSQL connection URL", {}, async () => {
-  return textResult(postgresUrl);
+  try {
+    return textResult(redactCredentials(postgresUrl));
+  } catch (error) {
+    return textResult({
+      error: error instanceof Error ? error.message : "Unknown error",
+    });
+  }
 });
 
 server.tool(
@@ -135,18 +149,24 @@ server.tool(
   "List PostgreSQL schemas",
   { database: z.string().optional() },
   async ({ database }) => {
-    const name = database ?? (singleDb ? defaultDbName : undefined);
-    if (!name)
-      throw new Error(
-        `Multiple databases are configured: ${dbNames.join(
-          ", "
-        )}. Please specify the database using the ` +
-          "`database`" +
-          ` parameter.`
-      );
-    const { url } = await getConfig(name);
-    const client = pool.get(url);
-    return textResult(pgListSchemas(client));
+    try {
+      const name = database ?? (singleDb ? defaultDbName : undefined);
+      if (!name)
+        throw new Error(
+          `Multiple databases are configured: ${dbNames.join(
+            ", "
+          )}. Please specify the database using the ` +
+            "`database`" +
+            ` parameter.`
+        );
+      const { url } = await getConfig(name);
+      const client = pool.get(url);
+      return textResult(pgListSchemas(client));
+    } catch (error) {
+      return textResult({
+        error: error instanceof Error ? error.message : "Unknown error",
+      });
+    }
   }
 );
 
@@ -159,19 +179,25 @@ server.tool(
   "List PostgreSQL tables",
   pgTablesArgsSchema,
   async ({ schema, database }) => {
-    if (!schema) throw new Error("Schema is required");
-    const name = database ?? (singleDb ? defaultDbName : undefined);
-    if (!name)
-      throw new Error(
-        `Multiple databases are configured: ${dbNames.join(
-          ", "
-        )}. Please specify the database using the ` +
-          "`database`" +
-          ` parameter.`
-      );
-    const { url } = await getConfig(name);
-    const client = pool.get(url);
-    return textResult(pgListTables(client, schema));
+    try {
+      if (!schema) throw new Error("Schema is required");
+      const name = database ?? (singleDb ? defaultDbName : undefined);
+      if (!name)
+        throw new Error(
+          `Multiple databases are configured: ${dbNames.join(
+            ", "
+          )}. Please specify the database using the ` +
+            "`database`" +
+            ` parameter.`
+        );
+      const { url } = await getConfig(name);
+      const client = pool.get(url);
+      return textResult(pgListTables(client, schema));
+    } catch (error) {
+      return textResult({
+        error: error instanceof Error ? error.message : "Unknown error",
+      });
+    }
   }
 );
 
@@ -180,38 +206,44 @@ server.tool(
   "Get PostgreSQL table details",
   { schema: z.string(), table: z.string(), database: z.string().optional() },
   async ({ schema, table, database }) => {
-    if (!schema || !table) throw new Error("Schema and table are required");
-    const name = database ?? (singleDb ? defaultDbName : undefined);
-    if (!name)
-      throw new Error(
-        `Multiple databases are configured: ${dbNames.join(
-          ", "
-        )}. Please specify the database using the ` +
-          "`database`" +
-          ` parameter.`
-      );
-    const { url } = await getConfig(name);
-    const client = pool.get(url);
-    const columns = await pgListTableColumns(client, table, schema);
-    const foreignKeys = await pgListTableForeignKeys(client, table, schema);
-    const result: PgTableDetails = {
-      schema_name: schema,
-      table_name: table,
-      columns: columns.map((col) => ({
-        column_name: col.column_name,
-        data_type: col.data_type,
-        is_nullable: col.is_nullable,
-        column_default: col.column_default,
-      })),
-      foreign_keys: foreignKeys.map((fk) => ({
-        constraint_name: fk.constraint_name,
-        referenced_table_schema: fk.referenced_table_schema,
-        referenced_table_name: fk.referenced_table_name,
-        referenced_column_name: fk.referenced_column_name,
-        column_name: fk.column_name,
-      })),
-    };
-    return textResult(result);
+    try {
+      if (!schema || !table) throw new Error("Schema and table are required");
+      const name = database ?? (singleDb ? defaultDbName : undefined);
+      if (!name)
+        throw new Error(
+          `Multiple databases are configured: ${dbNames.join(
+            ", "
+          )}. Please specify the database using the ` +
+            "`database`" +
+            ` parameter.`
+        );
+      const { url } = await getConfig(name);
+      const client = pool.get(url);
+      const columns = await pgListTableColumns(client, table, schema);
+      const foreignKeys = await pgListTableForeignKeys(client, table, schema);
+      const result: PgTableDetails = {
+        schema_name: schema,
+        table_name: table,
+        columns: columns.map((col) => ({
+          column_name: col.column_name,
+          data_type: col.data_type,
+          is_nullable: col.is_nullable,
+          column_default: col.column_default,
+        })),
+        foreign_keys: foreignKeys.map((fk) => ({
+          constraint_name: fk.constraint_name,
+          referenced_table_schema: fk.referenced_table_schema,
+          referenced_table_name: fk.referenced_table_name,
+          referenced_column_name: fk.referenced_column_name,
+          column_name: fk.column_name,
+        })),
+      };
+      return textResult(result);
+    } catch (error) {
+      return textResult({
+        error: error instanceof Error ? error.message : "Unknown error",
+      });
+    }
   }
 );
 
@@ -220,20 +252,26 @@ server.tool(
   "Execute a read-only SQL query",
   { query: z.string(), database: z.string().optional() },
   async ({ query, database }) => {
-    if (!query) throw new Error("Query is required");
-    const name = database ?? (singleDb ? defaultDbName : undefined);
-    if (!name)
-      throw new Error(
-        `Multiple databases are configured: ${dbNames.join(
-          ", "
-        )}. Please specify the database using the ` +
-          "`database`" +
-          ` parameter.`
-      );
-    const { url } = await getConfig(name);
-    const client = pool.get(url);
-    const result = await executeReadOnlyQuery(client, query);
-    return textResult(result);
+    try {
+      if (!query) throw new Error("Query is required");
+      const name = database ?? (singleDb ? defaultDbName : undefined);
+      if (!name)
+        throw new Error(
+          `Multiple databases are configured: ${dbNames.join(
+            ", "
+          )}. Please specify the database using the ` +
+            "`database`" +
+            ` parameter.`
+        );
+      const { url } = await getConfig(name);
+      const client = pool.get(url);
+      const result = await executeReadOnlyQuery(client, query);
+      return textResult(result);
+    } catch (error) {
+      return textResult({
+        error: error instanceof Error ? error.message : "Unknown error",
+      });
+    }
   }
 );
 
@@ -245,27 +283,44 @@ server.prompt(
     tables: z.string().optional(),
   },
   async (args) => {
-    const { schema, tables } = args;
-    if (!schema || !tables) {
-      throw new Error("Schema and tables are required for type generation");
-    }
-    const tableList = tables.split(",").map((table) => table.trim());
-    return {
-      description: `Generate TypeScript types for tables: ${tableList.join(
-        ", "
-      )}`,
-      messages: [
-        {
-          role: "user",
-          content: {
-            type: "text",
-            text: `Use pg_describe_table tool to generate TypeScript types for the following tables in schema "${schema}": ${tableList.join(
-              ", "
-            )}. Include all columns and their types.`,
+    try {
+      const { schema, tables } = args;
+      if (!schema || !tables) {
+        throw new Error("Schema and tables are required for type generation");
+      }
+      const tableList = tables.split(",").map((table) => table.trim());
+      return {
+        description: `Generate TypeScript types for tables: ${tableList.join(
+          ", "
+        )}`,
+        messages: [
+          {
+            role: "user",
+            content: {
+              type: "text",
+              text: `Use pg_describe_table tool to generate TypeScript types for the following tables in schema "${schema}": ${tableList.join(
+                ", "
+              )}. Include all columns and their types.`,
+            },
           },
-        },
-      ],
-    };
+        ],
+      };
+    } catch (error) {
+      return {
+        description: "Error generating types",
+        messages: [
+          {
+            role: "user",
+            content: {
+              type: "text",
+              text: `Error: ${
+                error instanceof Error ? error.message : "Unknown error"
+              }`,
+            },
+          },
+        ],
+      };
+    }
   }
 );
 
@@ -275,11 +330,26 @@ server.tool("pg_db_list", "List configured databases", {}, async () => {
   if (!config) throw new Error("Config file not found");
   const databases = Object.entries(config.databases).map(([name, db]) => ({
     name,
-    url: db.url,
+    url: redactCredentials(db.url),
     ttl: db.ttl,
   }));
   return textResult(databases);
 });
+
+// Helper function to redact credentials from URLs
+function redactCredentials(url: string): string {
+  try {
+    const urlObj = new URL(url);
+    if (urlObj.password) {
+      urlObj.password = "***";
+      return urlObj.toString();
+    }
+    return url;
+  } catch {
+    // If URL parsing fails, return the original URL
+    return url;
+  }
+}
 
 server.tool(
   "pg_db_add",
@@ -290,12 +360,18 @@ server.tool(
     ttl: z.number().optional(),
   },
   async ({ name, url, ttl = 60000 }) => {
-    await addDatabase(name, { url, ttl });
-    // Reconcile pool after addition
-    const newConfig = await loadConfig();
-    if (!newConfig) throw new Error("Config file not found");
-    pool.reconcile(newConfig);
-    return textResult({ name, url, ttl });
+    try {
+      await addDatabase(name, { url, ttl });
+      // Reconcile pool after addition
+      const newConfig = await loadConfig();
+      if (!newConfig) throw new Error("Config file not found");
+      pool.reconcile(newConfig);
+      return textResult({ name, url: redactCredentials(url), ttl });
+    } catch (error) {
+      return textResult({
+        error: error instanceof Error ? error.message : "Unknown error",
+      });
+    }
   }
 );
 
@@ -308,16 +384,26 @@ server.tool(
     ttl: z.number().optional(),
   },
   async ({ name, url, ttl }) => {
-    const update: Partial<{ url: string; ttl: number }> = {};
-    if (url !== undefined) update.url = url;
-    if (ttl !== undefined) update.ttl = ttl;
-    await updateDatabase(name, update);
-    // Evict and reconcile pool after update
-    pool.evict(name);
-    const updatedConfig = await loadConfig();
-    if (!updatedConfig) throw new Error("Config file not found");
-    pool.reconcile(updatedConfig);
-    return textResult({ name, ...update });
+    try {
+      const update: Partial<{ url: string; ttl: number }> = {};
+      if (url !== undefined) update.url = url;
+      if (ttl !== undefined) update.ttl = ttl;
+      await updateDatabase(name, update);
+      // Evict and reconcile pool after update
+      pool.evict(name);
+      const updatedConfig = await loadConfig();
+      if (!updatedConfig) throw new Error("Config file not found");
+      pool.reconcile(updatedConfig);
+      return textResult({
+        name,
+        ...(url && { url: redactCredentials(url) }),
+        ...(ttl !== undefined && { ttl }),
+      });
+    } catch (error) {
+      return textResult({
+        error: error instanceof Error ? error.message : "Unknown error",
+      });
+    }
   }
 );
 
@@ -326,13 +412,19 @@ server.tool(
   "Remove a database configuration",
   { name: z.string() },
   async ({ name }) => {
-    await removeDatabase(name);
-    // Evict and reconcile pool after removal
-    pool.evict(name);
-    const remConfig = await loadConfig();
-    if (!remConfig) throw new Error("Config file not found");
-    pool.reconcile(remConfig);
-    return textResult({ name });
+    try {
+      await removeDatabase(name);
+      // Evict and reconcile pool after removal
+      pool.evict(name);
+      const remConfig = await loadConfig();
+      if (!remConfig) throw new Error("Config file not found");
+      pool.reconcile(remConfig);
+      return textResult({ name });
+    } catch (error) {
+      return textResult({
+        error: error instanceof Error ? error.message : "Unknown error",
+      });
+    }
   }
 );
 
@@ -342,10 +434,16 @@ server.tool(
   "Reload database configuration and reconcile SqlPool",
   {},
   async () => {
-    const config = await loadConfig();
-    if (!config) throw new Error("Config file not found");
-    pool.reconcile(config);
-    return textResult(Object.keys(config.databases));
+    try {
+      const config = await loadConfig();
+      if (!config) throw new Error("Config file not found");
+      pool.reconcile(config);
+      return textResult(Object.keys(config.databases));
+    } catch (error) {
+      return textResult({
+        error: error instanceof Error ? error.message : "Unknown error",
+      });
+    }
   }
 );
 

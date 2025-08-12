@@ -138,7 +138,17 @@ export async function getConfig(name: string): Promise<DbEntry> {
   }
   const db = config.databases[name];
   if (!db) {
-    throw new Error(`Database config '${name}' not found`);
+    const knownDatabases = Object.keys(config.databases);
+    if (knownDatabases.length === 0) {
+      throw new Error(
+        "No databases are configured. Please add a database configuration first."
+      );
+    }
+    throw new Error(
+      `Database '${name}' not found. Available databases: ${knownDatabases.join(
+        ", "
+      )}`
+    );
   }
   const result = DbEntrySchema.safeParse(db);
   if (!result.success) {
