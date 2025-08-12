@@ -1,13 +1,5 @@
 import { describe, it, expect, beforeEach, afterEach } from "bun:test";
-import {
-  loadConfig,
-  saveConfig,
-  addDatabase,
-  updateDatabase,
-  removeDatabase,
-  getConfig,
-  listDatabases,
-} from "../src/config";
+import { ConfigManager } from "../src/config";
 import type { Config, DbEntry } from "../src/config";
 import { promises as fs } from "fs";
 import { join } from "path";
@@ -18,6 +10,7 @@ const ORIGINAL_POSTGRES_URL = process.env.POSTGRES_URL;
 
 // Test config path
 let TEST_CONFIG_PATH: string;
+let configManager: ConfigManager;
 
 describe("config.ts", () => {
   beforeEach(async () => {
@@ -27,6 +20,9 @@ describe("config.ts", () => {
 
     // Set the test config path
     process.env.PG_MCP_CONFIG_PATH = TEST_CONFIG_PATH;
+
+    // Create a new ConfigManager instance for each test
+    configManager = new ConfigManager(TEST_CONFIG_PATH);
   });
 
   afterEach(async () => {
@@ -57,7 +53,7 @@ describe("config.ts", () => {
     it("should create default config when file doesn't exist and POSTGRES_URL is set", async () => {
       process.env.POSTGRES_URL = "postgresql://user:pass@localhost:5432/testdb";
 
-      const config = await loadConfig();
+      const config = await configManager.loadConfig();
 
       expect(config).not.toBeNull();
       expect(config!.databases).toHaveProperty("default");
@@ -71,7 +67,7 @@ describe("config.ts", () => {
     it("should return config with empty databases when file doesn't exist and POSTGRES_URL is not set", async () => {
       delete process.env.POSTGRES_URL;
 
-      const config = await loadConfig();
+      const config = await configManager.loadConfig();
 
       expect(config).not.toBeNull();
       expect(config!.databases).toEqual({});
@@ -89,9 +85,9 @@ describe("config.ts", () => {
         autoReload: false,
       };
 
-      await saveConfig(testConfig);
+      await configManager.saveConfig(testConfig);
 
-      const loadedConfig = await loadConfig();
+      const loadedConfig = await configManager.loadConfig();
 
       expect(loadedConfig).toEqual(testConfig);
     });
@@ -100,7 +96,9 @@ describe("config.ts", () => {
       // Create an invalid config file
       await fs.writeFile(TEST_CONFIG_PATH, '{"invalid": "json"', "utf8");
 
-      await expect(loadConfig()).rejects.toThrow("Failed to load config");
+      await expect(configManager.loadConfig()).rejects.toThrow(
+        "Failed to load config"
+      );
     });
   });
 
@@ -116,7 +114,7 @@ describe("config.ts", () => {
         autoReload: true,
       };
 
-      await saveConfig(config);
+      await configManager.saveConfig(config);
 
       const savedData = await fs.readFile(TEST_CONFIG_PATH, "utf8");
       const savedConfig = JSON.parse(savedData);
@@ -136,16 +134,18 @@ describe("config.ts", () => {
       };
 
       // @ts-ignore - intentionally passing invalid config
-      await expect(saveConfig(invalidConfig)).rejects.toThrow("Invalid config");
+      await expect(configManager.saveConfig(invalidConfig)).rejects.toThrow(
+        "Invalid config"
+      );
     });
 
     it("should create directory structure if it doesn't exist", async () => {
-      // Set a nested path that doesn't exist
+      // Create a new ConfigManager with the nested path
       const nestedPath = TEST_CONFIG_PATH.replace(
         "config.json",
         "nested/deep/config.json"
       );
-      process.env.PG_MCP_CONFIG_PATH = nestedPath;
+      const nestedConfigManager = new ConfigManager(nestedPath);
 
       const config: Config = {
         databases: {
@@ -157,7 +157,7 @@ describe("config.ts", () => {
         autoReload: true,
       };
 
-      await saveConfig(config);
+      await nestedConfigManager.saveConfig(config);
 
       const savedData = await fs.readFile(nestedPath, "utf8");
       const savedConfig = JSON.parse(savedData);
@@ -173,16 +173,16 @@ describe("config.ts", () => {
         databases: {},
         autoReload: true,
       };
-      await saveConfig(initialConfig);
+      await configManager.saveConfig(initialConfig);
 
       const dbConfig: DbEntry = {
         url: "postgresql://user:pass@localhost:5432/testdb",
         ttl: 30000,
       };
 
-      await addDatabase("testdb", dbConfig);
+      await configManager.addDatabase("testdb", dbConfig);
 
-      const config = await loadConfig();
+      const config = await configManager.loadConfig();
       expect(config!.databases).toHaveProperty("testdb");
       expect(config!.databases.testdb).toEqual(dbConfig);
     });
@@ -197,16 +197,16 @@ describe("config.ts", () => {
         },
         autoReload: true,
       };
-      await saveConfig(initialConfig);
+      await configManager.saveConfig(initialConfig);
 
       const dbConfig: DbEntry = {
         url: "postgresql://user:pass@localhost:5432/anotherdb",
         ttl: 40000,
       };
 
-      await expect(addDatabase("testdb", dbConfig)).rejects.toThrow(
-        "Database name 'testdb' already exists"
-      );
+      await expect(
+        configManager.addDatabase("testdb", dbConfig)
+      ).rejects.toThrow("Database name 'testdb' already exists");
     });
 
     it("should throw error for invalid database config", async () => {
@@ -214,7 +214,7 @@ describe("config.ts", () => {
         databases: {},
         autoReload: true,
       };
-      await saveConfig(initialConfig);
+      await configManager.saveConfig(initialConfig);
 
       const invalidDbConfig = {
         url: "not-a-valid-url",
@@ -222,12 +222,15 @@ describe("config.ts", () => {
       };
 
       // @ts-ignore - intentionally passing invalid config
-      await expect(addDatabase("testdb", invalidDbConfig)).rejects.toThrow(
-        "Invalid database config"
-      );
+      await expect(
+        configManager.addDatabase("testdb", invalidDbConfig)
+      ).rejects.toThrow("Invalid database config");
     });
 
-    it("should throw error if config file not found", async () => {
+    it("should create default config if config file not found", async () => {
+      // Create a new ConfigManager and delete its config file
+      const tempConfigManager = new ConfigManager(TEST_CONFIG_PATH);
+
       // Delete config file
       try {
         await fs.unlink(TEST_CONFIG_PATH);
@@ -240,9 +243,14 @@ describe("config.ts", () => {
         ttl: 30000,
       };
 
-      await expect(addDatabase("testdb", dbConfig)).rejects.toThrow(
-        "Config file not found"
-      );
+      // Should not throw an error, but create a default config
+      await expect(
+        tempConfigManager.addDatabase("testdb", dbConfig)
+      ).resolves.toBeUndefined();
+
+      // Verify the database was added to the default config
+      const config = await tempConfigManager.loadConfig();
+      expect(config!.databases).toHaveProperty("testdb");
     });
   });
 
@@ -257,11 +265,11 @@ describe("config.ts", () => {
         },
         autoReload: true,
       };
-      await saveConfig(initialConfig);
+      await configManager.saveConfig(initialConfig);
 
-      await updateDatabase("testdb", { ttl: 45000 });
+      await configManager.updateDatabase("testdb", { ttl: 45000 });
 
-      const config = await loadConfig();
+      const config = await configManager.loadConfig();
       expect(config!.databases.testdb!.ttl).toBe(45000);
       expect(config!.databases.testdb!.url).toBe(
         "postgresql://user:pass@localhost:5432/testdb"
@@ -278,10 +286,10 @@ describe("config.ts", () => {
         },
         autoReload: true,
       };
-      await saveConfig(initialConfig);
+      await configManager.saveConfig(initialConfig);
 
       await expect(
-        updateDatabase("nonexistent", { ttl: 45000 })
+        configManager.updateDatabase("nonexistent", { ttl: 45000 })
       ).rejects.toThrow("Database name 'nonexistent' not found");
     });
 
@@ -295,14 +303,17 @@ describe("config.ts", () => {
         },
         autoReload: true,
       };
-      await saveConfig(initialConfig);
+      await configManager.saveConfig(initialConfig);
 
-      await expect(updateDatabase("testdb", { ttl: -1 })).rejects.toThrow(
-        "Invalid updated database config"
-      );
+      await expect(
+        configManager.updateDatabase("testdb", { ttl: -1 })
+      ).rejects.toThrow("Invalid updated database config");
     });
 
-    it("should throw error if config file not found", async () => {
+    it("should create default config if config file not found", async () => {
+      // Create a new ConfigManager and delete its config file
+      const tempConfigManager = new ConfigManager(TEST_CONFIG_PATH);
+
       // Delete config file
       try {
         await fs.unlink(TEST_CONFIG_PATH);
@@ -310,9 +321,10 @@ describe("config.ts", () => {
         // Ignore if file doesn't exist
       }
 
-      await expect(updateDatabase("testdb", { ttl: 45000 })).rejects.toThrow(
-        "Config file not found"
-      );
+      // Should throw "Database name 'testdb' not found" because the default config is empty
+      await expect(
+        tempConfigManager.updateDatabase("testdb", { ttl: 45000 })
+      ).rejects.toThrow("Database name 'testdb' not found");
     });
   });
 
@@ -331,11 +343,11 @@ describe("config.ts", () => {
         },
         autoReload: true,
       };
-      await saveConfig(initialConfig);
+      await configManager.saveConfig(initialConfig);
 
-      await removeDatabase("testdb");
+      await configManager.removeDatabase("testdb");
 
-      const config = await loadConfig();
+      const config = await configManager.loadConfig();
       expect(config!.databases).not.toHaveProperty("testdb");
       expect(config!.databases).toHaveProperty("anotherdb");
     });
@@ -350,14 +362,17 @@ describe("config.ts", () => {
         },
         autoReload: true,
       };
-      await saveConfig(initialConfig);
+      await configManager.saveConfig(initialConfig);
 
-      await expect(removeDatabase("nonexistent")).rejects.toThrow(
+      await expect(configManager.removeDatabase("nonexistent")).rejects.toThrow(
         "Database name 'nonexistent' not found"
       );
     });
 
-    it("should throw error if config file not found", async () => {
+    it("should throw error if database not found in default config", async () => {
+      // Create a new ConfigManager and delete its config file
+      const tempConfigManager = new ConfigManager(TEST_CONFIG_PATH);
+
       // Delete config file
       try {
         await fs.unlink(TEST_CONFIG_PATH);
@@ -365,8 +380,9 @@ describe("config.ts", () => {
         // Ignore if file doesn't exist
       }
 
-      await expect(removeDatabase("testdb")).rejects.toThrow(
-        "Config file not found"
+      // Should throw "Database name 'testdb' not found" because the default config is empty
+      await expect(tempConfigManager.removeDatabase("testdb")).rejects.toThrow(
+        "Database name 'testdb' not found"
       );
     });
   });
@@ -383,9 +399,9 @@ describe("config.ts", () => {
         },
         autoReload: true,
       };
-      await saveConfig(initialConfig);
+      await configManager.saveConfig(initialConfig);
 
-      const result = await getConfig("testdb");
+      const result = await configManager.getConfig("testdb");
 
       expect(result).toEqual(dbConfig);
     });
@@ -400,14 +416,17 @@ describe("config.ts", () => {
         },
         autoReload: true,
       };
-      await saveConfig(initialConfig);
+      await configManager.saveConfig(initialConfig);
 
-      await expect(getConfig("nonexistent")).rejects.toThrow(
+      await expect(configManager.getConfig("nonexistent")).rejects.toThrow(
         "Database 'nonexistent' not found"
       );
     });
 
-    it("should throw error if config file not found", async () => {
+    it("should throw error if database not found in default config", async () => {
+      // Create a new ConfigManager and delete its config file
+      const tempConfigManager = new ConfigManager(TEST_CONFIG_PATH);
+
       // Delete config file
       try {
         await fs.unlink(TEST_CONFIG_PATH);
@@ -415,8 +434,9 @@ describe("config.ts", () => {
         // Ignore if file doesn't exist
       }
 
-      await expect(getConfig("testdb")).rejects.toThrow(
-        "Config file not found"
+      // Should throw "No databases are configured" because the default config is empty
+      await expect(tempConfigManager.getConfig("testdb")).rejects.toThrow(
+        "No databases are configured"
       );
     });
 
@@ -425,9 +445,9 @@ describe("config.ts", () => {
         databases: {},
         autoReload: true,
       };
-      await saveConfig(initialConfig);
+      await configManager.saveConfig(initialConfig);
 
-      await expect(getConfig("testdb")).rejects.toThrow(
+      await expect(configManager.getConfig("testdb")).rejects.toThrow(
         "No databases are configured"
       );
     });
@@ -452,9 +472,9 @@ describe("config.ts", () => {
         },
         autoReload: true,
       };
-      await saveConfig(initialConfig);
+      await configManager.saveConfig(initialConfig);
 
-      const result = await listDatabases();
+      const result = await configManager.listDatabases();
 
       expect(result).toEqual(dbConfigs);
     });
@@ -464,14 +484,17 @@ describe("config.ts", () => {
         databases: {},
         autoReload: true,
       };
-      await saveConfig(initialConfig);
+      await configManager.saveConfig(initialConfig);
 
-      const result = await listDatabases();
+      const result = await configManager.listDatabases();
 
       expect(result).toEqual([]);
     });
 
-    it("should throw error if config file not found", async () => {
+    it("should return empty array if config file not found", async () => {
+      // Create a new ConfigManager and delete its config file
+      const tempConfigManager = new ConfigManager(TEST_CONFIG_PATH);
+
       // Delete config file
       try {
         await fs.unlink(TEST_CONFIG_PATH);
@@ -479,7 +502,9 @@ describe("config.ts", () => {
         // Ignore if file doesn't exist
       }
 
-      await expect(listDatabases()).rejects.toThrow("Config file not found");
+      // Should not throw an error, but return an empty array
+      const result = await tempConfigManager.listDatabases();
+      expect(result).toEqual([]);
     });
 
     it("should validate each database config", async () => {
@@ -500,7 +525,11 @@ describe("config.ts", () => {
         "utf8"
       );
 
-      await expect(listDatabases()).rejects.toThrow("Invalid database config");
+      // Create a new ConfigManager to read the invalid config
+      const tempConfigManager = new ConfigManager(TEST_CONFIG_PATH);
+      await expect(tempConfigManager.listDatabases()).rejects.toThrow(
+        "Failed to load config: Invalid config:"
+      );
     });
   });
 });

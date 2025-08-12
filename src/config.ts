@@ -301,43 +301,5 @@ export class ConfigManager {
   }
 }
 
-// Create a default instance for backward compatibility
-const defaultConfigManager = new ConfigManager();
-
-// Export functions for backward compatibility
-export async function loadConfig(): Promise<Config | null> {
-  return defaultConfigManager.loadConfig();
-}
-
-export async function saveConfig(config: Config): Promise<void> {
-  return defaultConfigManager.saveConfig(config);
-}
-
-export async function addDatabase(
-  name: string,
-  dbConfig: DbEntry
-): Promise<void> {
-  return defaultConfigManager.addDatabase(name, dbConfig);
-}
-
-export async function updateDatabase(
-  name: string,
-  update: Partial<DbEntry>
-): Promise<void> {
-  return defaultConfigManager.updateDatabase(name, update);
-}
-
-export async function removeDatabase(name: string): Promise<void> {
-  return defaultConfigManager.removeDatabase(name);
-}
-
-export async function getConfig(name: string): Promise<DbEntry> {
-  return defaultConfigManager.getConfig(name);
-}
-
-export async function listDatabases(): Promise<DbEntry[]> {
-  return defaultConfigManager.listDatabases();
-}
-
 // Export the class as well for new usage
 // (ConfigManager is already exported above)
