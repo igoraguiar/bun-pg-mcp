@@ -14,6 +14,7 @@ import {
   executeReadOnlyQuery,
 } from "./db/helpers";
 import type { PgTableDetails } from "./db/types";
+import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 
 async function loadEnvFile(filePath: string) {
   try {
@@ -484,13 +485,17 @@ function createMcpServer({
     }
   );
 
-  // Start receiving messages on stdin and sending messages on stdout
-  const transport = new StdioServerTransport();
-  return { server, transport };
+  return server;
 }
 
 if (Bun.main === import.meta.path) {
   // Initialize connection pool using configured databases
-  const { server, transport } = createMcpServer();
+  const server = createMcpServer();
+  // Start receiving messages on stdin and sending messages on stdout
+  const transport = process.argv.includes("--http")
+    ? new StreamableHTTPServerTransport({
+        sessionIdGenerator: () => crypto.randomUUID(),
+      })
+    : new StdioServerTransport();
   await server.connect(transport);
 }
