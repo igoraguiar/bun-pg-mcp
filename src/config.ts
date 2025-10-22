@@ -46,9 +46,11 @@ export class ConfigManager {
    * Returns the configuration file path
    */
   getConfigPath(): string {
-    return typeof this.configPath === "function"
-      ? this.configPath()
-      : this.configPath;
+    const resolvedConfigPath =
+      typeof this.configPath === "function"
+        ? this.configPath()
+        : this.configPath;
+    return resolvedConfigPath;
   }
 
   /**
@@ -109,7 +111,7 @@ export class ConfigManager {
     if (!result.success) {
       throw new Error("Invalid config: " + JSON.stringify(result.error.issues));
     }
-    const tmpPath = this.configPath + ".tmp";
+    const tmpPath = this.getConfigPath() + ".tmp";
     try {
       await this.ensureConfigFolderExists();
       await fs.writeFile(tmpPath, JSON.stringify(config, null, 2), "utf8");
