@@ -1,0 +1,93 @@
+{
+	"meta": {
+		"generatedAt": "2025-08-12T14:21:30.217Z",
+		"tasksAnalyzed": 10,
+		"totalTasks": 10,
+		"analysisCount": 10,
+		"thresholdScore": 5,
+		"projectName": "Taskmaster",
+		"usedResearch": false
+	},
+	"complexityAnalysis": [
+		{
+			"taskId": 1,
+			"taskTitle": "Setup Project Repository",
+			"complexityScore": 3,
+			"recommendedSubtasks": 4,
+			"expansionPrompt": "Expand the task 'Setup Project Repository' into subtasks for each step: initialize Bun project, configure ESLint, configure Prettier, create directory structure, and define .gitignore.",
+			"reasoning": "Relatively straightforward setup, but breaking it down makes it easier to track progress and assign responsibilities."
+		},
+		{
+			"taskId": 2,
+			"taskTitle": "Implement ConfigManager",
+			"complexityScore": 7,
+			"recommendedSubtasks": 7,
+			"expansionPrompt": "Expand the task 'Implement ConfigManager' into subtasks for implementing each method (loadConfig, saveConfig, getConfig, listDatabases, addDatabase, updateDatabase, removeDatabase) and the migration logic.",
+			"reasoning": "Involves file system operations, Zod validation, and migration logic, making it moderately complex. Each method can be a subtask."
+		},
+		{
+			"taskId": 3,
+			"taskTitle": "Implement SqlPool",
+			"complexityScore": 8,
+			"recommendedSubtasks": 7,
+			"expansionPrompt": "Expand the task 'Implement SqlPool' into subtasks for implementing each method (get, evict, reconcile, closeAll) and the idle reaper functionality.",
+			"reasoning": "Managing a pool of database connections with TTLs and an idle reaper adds significant complexity. Each method and the reaper should be a subtask."
+		},
+		{
+			"taskId": 4,
+			"taskTitle": "Update Existing Tools",
+			"complexityScore": 6,
+			"recommendedSubtasks": 4,
+			"expansionPrompt": "Expand the task 'Update Existing Tools' into subtasks for modifying tools to accept the database parameter, using SqlPool, implementing auto-selection, and handling errors.",
+			"reasoning": "Requires modifying existing code and adding new logic for database selection and error handling. Each major step should be a subtask."
+		},
+		{
+			"taskId": 5,
+			"taskTitle": "Implement New MCP Tools",
+			"complexityScore": 7,
+			"recommendedSubtasks": 7,
+			"expansionPrompt": "Expand the task 'Implement New MCP Tools' into subtasks for implementing each tool (pg_db_list, pg_db_add, pg_db_update, pg_db_remove, pg_db_reload) and ensuring proper SqlPool reconciliation.",
+			"reasoning": "Implementing multiple new tools and ensuring proper SqlPool reconciliation requires careful planning and execution. Each tool and the reconciliation logic should be a subtask."
+		},
+		{
+			"taskId": 6,
+			"taskTitle": "Implement Auto-Reload",
+			"complexityScore": 5,
+			"recommendedSubtasks": 4,
+			"expansionPrompt": "Expand the task 'Implement Auto-Reload' into subtasks for setting up the file system watch, debouncing events, reloading the configuration, and enabling/disabling based on configuration.",
+			"reasoning": "Involves file system watching and debouncing, which can be tricky. Each step should be a subtask."
+		},
+		{
+			"taskId": 7,
+			"taskTitle": "Update README",
+			"complexityScore": 2,
+			"recommendedSubtasks": 4,
+			"expansionPrompt": "Expand the task 'Update README' into subtasks for documenting the configuration path, schema, tools, and usage.",
+			"reasoning": "Straightforward documentation task, but breaking it down ensures all aspects are covered."
+		},
+		{
+			"taskId": 8,
+			"taskTitle": "Add Tests",
+			"complexityScore": 6,
+			"recommendedSubtasks": 3,
+			"expansionPrompt": "Expand the task 'Add Tests' into subtasks for adding unit tests for ConfigManager, SqlPool, and smoke tests for MCP tools.",
+			"reasoning": "Adding tests for different components requires separate effort and tracking."
+		},
+		{
+			"taskId": 9,
+			"taskTitle": "Improve Error Handling and Logging",
+			"complexityScore": 5,
+			"recommendedSubtasks": 4,
+			"expansionPrompt": "Expand the task 'Improve Error Handling and Logging' into subtasks for implementing error handling for missing/unknown databases, including database names in error messages, avoiding logging sensitive URIs, and considering credential redaction.",
+			"reasoning": "Requires careful consideration of security and user experience. Each aspect of error handling and logging should be a subtask."
+		},
+		{
+			"taskId": 10,
+			"taskTitle": "Refactor Code",
+			"complexityScore": 4,
+			"recommendedSubtasks": 3,
+			"expansionPrompt": "Expand the task 'Refactor Code' into subtasks for reviewing code, addressing code smells, and refactoring for improved quality.",
+			"reasoning": "Refactoring is an iterative process, and breaking it down allows for focused improvements."
+		}
+	]
+}
