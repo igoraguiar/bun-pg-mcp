@@ -1,3 +1,5 @@
+#!/usr/bin/env bun
+
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { z } from "zod";
@@ -488,8 +490,7 @@ function createMcpServer({
   return server;
 }
 
-if (Bun.main === import.meta.path) {
-  // Initialize connection pool using configured databases
+export async function initializeServer() {
   const server = createMcpServer();
   // Start receiving messages on stdin and sending messages on stdout
   const transport = process.argv.includes("--http")
@@ -498,4 +499,9 @@ if (Bun.main === import.meta.path) {
       })
     : new StdioServerTransport();
   await server.connect(transport);
+}
+
+if (Bun.main === import.meta.path) {
+  // Initialize connection pool using configured databases
+  await initializeServer();
 }
