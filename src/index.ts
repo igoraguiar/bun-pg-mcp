@@ -17,6 +17,7 @@ import {
 } from "./db/helpers";
 import type { PgTableDetails } from "./db/types";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
+import { version } from "../package.json";
 
 async function loadEnvFile(filePath: string) {
   try {
@@ -72,7 +73,7 @@ function createMcpServer({
   // Create an MCP server
   const server = new McpServer({
     name: "PG MCP Server",
-    version: "1.0.0",
+    version,
   });
 
   // Add an addition tool
@@ -490,18 +491,32 @@ function createMcpServer({
   return server;
 }
 
-export async function initializeServer() {
+export async function initializeServer(
+  transportType: "stdio" | "http" = "stdio"
+) {
   const server = createMcpServer();
   // Start receiving messages on stdin and sending messages on stdout
-  const transport = process.argv.includes("--http")
-    ? new StreamableHTTPServerTransport({
-        sessionIdGenerator: () => crypto.randomUUID(),
-      })
-    : new StdioServerTransport();
+  const transport =
+    transportType === "http"
+      ? new StreamableHTTPServerTransport({
+          sessionIdGenerator: () => crypto.randomUUID(),
+        })
+      : new StdioServerTransport();
   await server.connect(transport);
+  //TODO: Actually handle http server requests
 }
 
 if (Bun.main === import.meta.path) {
+  if (process.argv.includes("--help")) {
+    let script = `${process.argv[0]} ${process.argv[1]}`;
+    if (process.argv[1]?.startsWith("/$bunfs/root/")) {
+      script = process.argv[1].replace("/$bunfs/root/", "");
+    }
+    console.log("pg-mcp - PostgreSQL MCP Server v" + version);
+    console.log(`Usage: ${script} [--help]`);
+    // console.log("  --http  Start the server in Streamable HTTP mode");
+    process.exit(0);
+  }
   // Initialize connection pool using configured databases
-  await initializeServer();
+  await initializeServer(process.argv.includes("--http") ? "http" : "stdio");
 }
