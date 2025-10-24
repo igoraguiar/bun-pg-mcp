@@ -48,6 +48,52 @@ if (envFileExists) {
   await loadEnvFile(envFile);
 }
 
+async function getDatabasesInfo(configManager: ConfigManager) {
+  const config = await configManager.loadConfig();
+  if (!config) {
+    throw new Error("Failed to load config");
+  }
+  const dbList = config.databases;
+  const dbNames = Object.keys(dbList);
+  // Allow empty database configuration
+  const defaultDbName =
+    dbNames.find((name) => name === config.defaultDatabase) || dbNames.at(0);
+  const singleDb = dbNames.length === 1;
+  return {
+    dbList,
+    dbNames,
+    defaultDbName,
+    singleDb,
+  };
+}
+
+async function resolveDatabaseName(
+  configManager: ConfigManager,
+  database: string | undefined
+) {
+  const { dbList, dbNames, defaultDbName, singleDb } = await getDatabasesInfo(
+    configManager
+  );
+  // Determine database name
+  const name = database ?? defaultDbName;
+  if (!name) {
+    if (dbNames.length === 0) {
+      throw new Error(
+        "No databases are configured. Please add a database configuration first."
+      );
+    } else {
+      throw new Error(
+        `Multiple databases are configured: ${dbNames.join(
+          ", "
+        )}. Please specify the database using the ` +
+          "`database`" +
+          ` parameter.`
+      );
+    }
+  }
+  return name;
+}
+
 function createMcpServer({
   pool = new SqlPool(),
   configManager = new ConfigManager(),
@@ -61,10 +107,6 @@ function createMcpServer({
       console.error("Auto-reload error: Failed to reconcile SqlPool", error);
     }
   });
-  const dbNames = Object.keys(configManager.listDatabases());
-  // Allow empty database configuration
-  const defaultDbName = dbNames.length > 0 ? dbNames[0]! : undefined;
-  const singleDb = dbNames.length === 1;
 
   // Create an MCP server
   const server = new McpServer({
@@ -79,23 +121,7 @@ function createMcpServer({
     { database: z.string().optional() },
     async ({ database }) => {
       try {
-        // Determine database name
-        const name = database ?? (singleDb ? defaultDbName : undefined);
-        if (!name) {
-          if (dbNames.length === 0) {
-            throw new Error(
-              "No databases are configured. Please add a database configuration first."
-            );
-          } else {
-            throw new Error(
-              `Multiple databases are configured: ${dbNames.join(
-                ", "
-              )}. Please specify the database using the ` +
-                "`database`" +
-                ` parameter.`
-            );
-          }
-        }
+        const name = await resolveDatabaseName(configManager, database);
         const { url } = await configManager.getConfig(name);
         const client = pool.get(url);
         return textResult(pgGetServerVersion(client));
@@ -113,22 +139,7 @@ function createMcpServer({
     { database: z.string().optional() },
     async ({ database }) => {
       try {
-        const name = database ?? (singleDb ? defaultDbName : undefined);
-        if (!name) {
-          if (dbNames.length === 0) {
-            throw new Error(
-              "No databases are configured. Please add a database configuration first."
-            );
-          } else {
-            throw new Error(
-              `Multiple databases are configured: ${dbNames.join(
-                ", "
-              )}. Please specify the database using the ` +
-                "`database`" +
-                ` parameter.`
-            );
-          }
-        }
+        const name = await resolveDatabaseName(configManager, database);
         const { url } = await configManager.getConfig(name);
         return textResult(redactCredentials(url));
       } catch (error) {
@@ -145,22 +156,7 @@ function createMcpServer({
     { database: z.string().optional() },
     async ({ database }) => {
       try {
-        const name = database ?? (singleDb ? defaultDbName : undefined);
-        if (!name) {
-          if (dbNames.length === 0) {
-            throw new Error(
-              "No databases are configured. Please add a database configuration first."
-            );
-          } else {
-            throw new Error(
-              `Multiple databases are configured: ${dbNames.join(
-                ", "
-              )}. Please specify the database using the ` +
-                "`database`" +
-                ` parameter.`
-            );
-          }
-        }
+        const name = await resolveDatabaseName(configManager, database);
         const { url } = await configManager.getConfig(name);
         const client = pool.get(url);
         return textResult(pgListSchemas(client));
@@ -183,22 +179,7 @@ function createMcpServer({
     async ({ schema, database }) => {
       try {
         if (!schema) throw new Error("Schema is required");
-        const name = database ?? (singleDb ? defaultDbName : undefined);
-        if (!name) {
-          if (dbNames.length === 0) {
-            throw new Error(
-              "No databases are configured. Please add a database configuration first."
-            );
-          } else {
-            throw new Error(
-              `Multiple databases are configured: ${dbNames.join(
-                ", "
-              )}. Please specify the database using the ` +
-                "`database`" +
-                ` parameter.`
-            );
-          }
-        }
+        const name = await resolveDatabaseName(configManager, database);
         const { url } = await configManager.getConfig(name);
         const client = pool.get(url);
         return textResult(pgListTables(client, schema));
@@ -217,22 +198,7 @@ function createMcpServer({
     async ({ schema, table, database }) => {
       try {
         if (!schema || !table) throw new Error("Schema and table are required");
-        const name = database ?? (singleDb ? defaultDbName : undefined);
-        if (!name) {
-          if (dbNames.length === 0) {
-            throw new Error(
-              "No databases are configured. Please add a database configuration first."
-            );
-          } else {
-            throw new Error(
-              `Multiple databases are configured: ${dbNames.join(
-                ", "
-              )}. Please specify the database using the ` +
-                "`database`" +
-                ` parameter.`
-            );
-          }
-        }
+        const name = await resolveDatabaseName(configManager, database);
         const { url } = await configManager.getConfig(name);
         const client = pool.get(url);
         const columns = await pgListTableColumns(client, table, schema);
@@ -270,22 +236,7 @@ function createMcpServer({
     async ({ query, database }) => {
       try {
         if (!query) throw new Error("Query is required");
-        const name = database ?? (singleDb ? defaultDbName : undefined);
-        if (!name) {
-          if (dbNames.length === 0) {
-            throw new Error(
-              "No databases are configured. Please add a database configuration first."
-            );
-          } else {
-            throw new Error(
-              `Multiple databases are configured: ${dbNames.join(
-                ", "
-              )}. Please specify the database using the ` +
-                "`database`" +
-                ` parameter.`
-            );
-          }
-        }
+        const name = await resolveDatabaseName(configManager, database);
         const { url } = await configManager.getConfig(name);
         const client = pool.get(url);
         const result = await executeReadOnlyQuery(client, query);
