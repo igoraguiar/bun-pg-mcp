@@ -169,7 +169,7 @@ function createMcpServer({
   );
 
   const pgTablesArgsSchema = {
-    schema: z.string(),
+    schema: z.string().default("public"),
     database: z.string().optional(),
   };
   server.tool(
@@ -194,7 +194,11 @@ function createMcpServer({
   server.tool(
     "pg_describe_table",
     "Get PostgreSQL table details",
-    { schema: z.string(), table: z.string(), database: z.string().optional() },
+    {
+      schema: z.string().default("public"),
+      table: z.string(),
+      database: z.string().optional(),
+    },
     async ({ schema, table, database }) => {
       try {
         if (!schema || !table) throw new Error("Schema and table are required");
