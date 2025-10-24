@@ -349,7 +349,7 @@ function createMcpServer({
     {
       name: z.string(),
       url: z.string().url(),
-      ttl: z.number().optional(),
+      ttl: z.number({ coerce: true }).optional(),
     },
     async ({ name, url, ttl = 60000 }) => {
       try {
