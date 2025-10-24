@@ -28,6 +28,7 @@ export type DbEntry = z.infer<typeof DbEntrySchema>;
 export const ConfigSchema = z.object({
   databases: z.record(DbEntrySchema),
   autoReload: z.boolean().default(false),
+  defaultDatabase: z.string().optional(),
 });
 
 export type Config = z.infer<typeof ConfigSchema>;
@@ -95,7 +96,9 @@ export class ConfigManager {
           await this.saveConfig(config);
           return config;
         } catch (parseErr) {
-          throw new Error(`Failed to create default config: ${parseErr}`);
+          throw new Error(`Failed to create default config: ${parseErr}`, {
+            cause: parseErr,
+          });
         }
       }
       throw new Error(`Failed to load config: ${err.message}`);
@@ -259,30 +262,34 @@ export class ConfigManager {
     // Set the callback
     this.reloadCallback = callback;
 
-    // Create new watcher
-    this.watcher = fsSync.watch(
-      this.getConfigPath(),
-      (_eventType, _filename) => {
-        // Debounce and handle change events
-        if (this.reloadTimer) {
-          clearTimeout(this.reloadTimer);
-        }
-
-        this.reloadTimer = setTimeout(async () => {
-          try {
-            const newConfig = await this.loadConfig();
-            // Only call callback when autoReload flag is true
-            if (newConfig?.autoReload && this.reloadCallback) {
-              this.reloadCallback(newConfig);
-            }
-          } catch {
-            console.error(
-              "Auto-reload error: Configuration file could not be reloaded"
-            );
+    // Ensure config file exists
+    this.loadConfig()
+      .then(() => {
+        // Create new watcher
+        return fsSync.watch(this.getConfigPath(), (_eventType, _filename) => {
+          // Debounce and handle change events
+          if (this.reloadTimer) {
+            clearTimeout(this.reloadTimer);
           }
-        }, this.DEBOUNCE_MS);
-      }
-    );
+
+          this.reloadTimer = setTimeout(async () => {
+            try {
+              const newConfig = await this.loadConfig();
+              // Only call callback when autoReload flag is true
+              if (newConfig?.autoReload && this.reloadCallback) {
+                this.reloadCallback(newConfig);
+              }
+            } catch {
+              console.error(
+                "Auto-reload error: Configuration file could not be reloaded"
+              );
+            }
+          }, this.DEBOUNCE_MS);
+        });
+      })
+      .then((w) => {
+        this.watcher = w;
+      });
   }
 
   /**
