@@ -257,30 +257,25 @@ function createMcpServer({
     "gen_types",
     "Generate TypeScript types for the comma separated tables",
     {
+      database: z.string().optional(),
       schema: z.string().optional(),
       tables: z.string().optional(),
     },
     async (args) => {
       try {
-        const { schema, tables } = args;
-        if (!schema || !tables) {
-          throw new Error("Schema and tables are required for type generation");
-        }
-        if (dbNames.length === 0) {
-          return {
-            description: "No databases configured",
-            messages: [
-              {
-                role: "user",
-                content: {
-                  type: "text",
-                  text: "Error: No databases are configured. Please add a database configuration first.",
-                },
-              },
-            ],
-          };
-        }
-        const tableList = tables.split(",").map((table) => table.trim());
+        let { schema, tables, database } = args;
+        schema = schema?.trim() || "public";
+        tables = tables?.trim() || undefined;
+        database = database?.trim() || undefined;
+        const name = await resolveDatabaseName(configManager, database);
+        const tableList =
+          tables?.split(",").map((table) => table.trim()) ??
+          (
+            await pgListTables(
+              pool.get((await configManager.getConfig(name)).url),
+              schema
+            )
+          ).map((table) => table.table_name);
         return {
           description: `Generate TypeScript types for tables: ${tableList.join(
             ", "
@@ -290,9 +285,12 @@ function createMcpServer({
               role: "user",
               content: {
                 type: "text",
-                text: `Use pg_describe_table tool to generate TypeScript types for the following tables in schema "${schema}": ${tableList.join(
-                  ", "
-                )}. Include all columns and their types.`,
+                text: `Use pg_describe_table tool to get table details and generate TypeScript types for each table using the following parameters:
+- schema "${schema}"
+- tables ${tableList.join(", ")}
+- database "${name}"
+                
+Include all columns and their types.`,
               },
             },
           ],
