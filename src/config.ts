@@ -259,10 +259,11 @@ export class ConfigManager {
     // Set the callback
     this.reloadCallback = callback;
 
+    // Ensure config file exists
+    this.loadConfig()
+      .then(() => {
     // Create new watcher
-    this.watcher = fsSync.watch(
-      this.getConfigPath(),
-      (_eventType, _filename) => {
+        return fsSync.watch(this.getConfigPath(), (_eventType, _filename) => {
         // Debounce and handle change events
         if (this.reloadTimer) {
           clearTimeout(this.reloadTimer);
@@ -281,8 +282,11 @@ export class ConfigManager {
             );
           }
         }, this.DEBOUNCE_MS);
-      }
-    );
+        });
+      })
+      .then((w) => {
+        this.watcher = w;
+      });
   }
 
   /**
