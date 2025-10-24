@@ -72,9 +72,9 @@ export class SqlPool {
       }
     }
     // Add new databases
-    for (const db of Object.keys(newDatabases)) {
-      if (!this.pool[db]) {
-        this.get(db);
+    for (const dbConfig of Object.values(newDatabases)) {
+      if (!this.pool[dbConfig.url]) {
+        this.get(dbConfig.url);
       }
     }
     // Optionally update connections if config changed (not implemented here)
