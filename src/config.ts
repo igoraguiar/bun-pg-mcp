@@ -93,7 +93,9 @@ export class ConfigManager {
           await this.saveConfig(config);
           return config;
         } catch (parseErr) {
-          throw new Error(`Failed to create default config: ${parseErr}`);
+          throw new Error(`Failed to create default config: ${parseErr}`, {
+            cause: parseErr,
+          });
         }
       }
       throw new Error(`Failed to load config: ${err.message}`);
