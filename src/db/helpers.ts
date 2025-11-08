@@ -58,21 +58,25 @@ export async function pgListTableForeignKeys(
   const result: Array<PgForeignKeyItem> = await pg`
         select
         tc.constraint_name,
-        kcu.table_schema as referenced_table_schema,
-        kcu.table_name as referenced_table_name,
-        kcu.column_name as referenced_column_name,
-        kcu2.column_name
+        kcu.column_name,
+        kcu2.table_schema as referenced_table_schema,
+        kcu2.table_name as referenced_table_name,
+        kcu2.column_name as referenced_column_name
         from information_schema.table_constraints tc
         join information_schema.key_column_usage kcu
           on tc.constraint_name = kcu.constraint_name
           and tc.table_schema = kcu.table_schema
+        join information_schema.referential_constraints rc
+          on tc.constraint_name = rc.constraint_name
+          and tc.table_schema = rc.constraint_schema
         join information_schema.key_column_usage kcu2
-          on tc.constraint_name = kcu2.constraint_name
-          and tc.table_schema = kcu2.table_schema
+          on rc.unique_constraint_name = kcu2.constraint_name
+          and rc.unique_constraint_schema = kcu2.table_schema
           and kcu.ordinal_position = kcu2.ordinal_position
         where tc.constraint_type = 'FOREIGN KEY'
-        and kcu.table_name = ${tableName}
-        and kcu.table_schema = ${schemaName};
+        and tc.table_name = ${tableName}
+        and tc.table_schema = ${schemaName}
+        order by kcu.ordinal_position;
     `;
   return result;
 }
