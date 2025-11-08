@@ -12,7 +12,7 @@ import {
   executeReadOnlyQuery,
 } from "./db/helpers";
 import type { PgTableDetails } from "./db/types";
-import { SqlPool } from "./sqlPool";
+import { SqlPool } from "./sql-pool";
 
 async function textResult(data: any): Promise<CallToolResult> {
   data = await Promise.resolve(data);
