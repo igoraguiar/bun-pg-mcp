@@ -26,7 +26,16 @@ export type PgForeignKeyItem = {
   column_name: string;
 };
 
+export type PgReferencedByItem = {
+  constraint_name: string;
+  referencing_table_schema: string;
+  referencing_table_name: string;
+  referencing_column_name: string;
+  referenced_column_name: string;
+};
+
 export type PgTableDetails = PgTableItem & {
   columns: PgColumnItem[];
   foreign_keys: PgForeignKeyItem[];
+  referenced_by: PgReferencedByItem[];
 };
