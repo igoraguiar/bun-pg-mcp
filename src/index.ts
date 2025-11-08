@@ -18,6 +18,7 @@ import {
   pgListSchemas,
   pgListTableColumns,
   pgListTableForeignKeys,
+  pgListTableReferencedBy,
   pgListTables,
   executeReadOnlyQuery,
 } from "./db/helpers";
@@ -217,6 +218,11 @@ function createMcpServer({
         const client = pool.get(url);
         const columns = await pgListTableColumns(client, table, schema);
         const foreignKeys = await pgListTableForeignKeys(client, table, schema);
+        const referencedBy = await pgListTableReferencedBy(
+          client,
+          table,
+          schema
+        );
         const result: PgTableDetails = {
           schema_name: schema,
           table_name: table,
@@ -232,6 +238,13 @@ function createMcpServer({
             referenced_table_name: fk.referenced_table_name,
             referenced_column_name: fk.referenced_column_name,
             column_name: fk.column_name,
+          })),
+          referenced_by: referencedBy.map((rb) => ({
+            constraint_name: rb.constraint_name,
+            referencing_table_schema: rb.referencing_table_schema,
+            referencing_table_name: rb.referencing_table_name,
+            referencing_column_name: rb.referencing_column_name,
+            referenced_column_name: rb.referenced_column_name,
           })),
         };
         return textResult(result);
