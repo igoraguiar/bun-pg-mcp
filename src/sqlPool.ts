@@ -63,18 +63,20 @@ export class SqlPool {
     }
   }
   reconcile(newConfig: Config): void {
-    const newDatabases = newConfig.databases || {};
+    const newDatabases = Object.values(newConfig.databases || {}).map(
+      (db) => db.url
+    );
     const currentDatabases = Object.keys(this.pool);
     // Evict databases not in newConfig
     for (const db of currentDatabases) {
-      if (!newDatabases[db]) {
+      if (!newDatabases.includes(db)) {
         this.evict(db);
       }
     }
     // Add new databases
-    for (const dbConfig of Object.values(newDatabases)) {
-      if (!this.pool[dbConfig.url]) {
-        this.get(dbConfig.url);
+    for (const url of newDatabases) {
+      if (!this.pool[url]) {
+        this.get(url);
       }
     }
     // Optionally update connections if config changed (not implemented here)
