@@ -53,7 +53,10 @@ async function resolveDatabaseName(
     configManager
   );
   // Determine database name
-  const name = database ?? defaultDbName;
+  const name =
+    database?.trim() ||
+    defaultDbName?.trim() ||
+    (singleDb ? dbNames[0] : undefined);
   if (!name) {
     if (dbNames.length === 0) {
       throw new Error(
@@ -61,7 +64,7 @@ async function resolveDatabaseName(
       );
     } else {
       throw new Error(
-        `Multiple databases are configured: ${dbNames.join(
+        `Multiple databases are configured (${dbNames.length}): ${dbNames.join(
           ", "
         )}. Please specify the database using the ` +
           "`database`" +
