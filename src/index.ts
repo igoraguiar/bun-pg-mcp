@@ -46,11 +46,19 @@ if (Bun.main === import.meta.path) {
         type: "string",
         default: "3838",
       },
+      version: {
+        type: "boolean",
+        default: false,
+      },
     },
     strict: true,
     allowPositionals: false,
   });
 
+  if (values.version) {
+    console.log(version);
+    process.exit(0);
+  }
   if (values.mode === "stdio") {
     const server = createMcpServer({ version });
     await server.connect(new StdioServerTransport());
