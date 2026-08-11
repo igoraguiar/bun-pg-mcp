@@ -1,7 +1,6 @@
 #!/usr/bin/env bun
 
 import express from "express";
-import { parseArgs } from "util";
 import { StdioServerTransport } from "@modelcontextprotocol/sdk/server/stdio.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { isInitializeRequest } from "@modelcontextprotocol/sdk/types.js";
@@ -9,6 +8,7 @@ import { randomUUID } from "crypto";
 import { createMcpServer } from "./server";
 import { version } from "../package.json";
 import { resolve } from "path";
+import { parseMainArgs } from "./args";
 import { parseCliArgs, printHelp, printToolHelp, runTool } from "./cli";
 
 async function loadEnvFile(filePath: string) {
@@ -32,38 +32,18 @@ if (envFileExists) {
 }
 
 if (Bun.main === import.meta.path) {
-const { values } = parseArgs({
-		args: Bun.argv.slice(2),
-		options: {
-			mode: {
-				type: "string",
-				default: "stdio",
-			},
-			"http-host": {
-				type: "string",
-				default: "0.0.0.0",
-			},
-			"http-port": {
-				type: "string",
-				default: "3838",
-			},
-			version: {
-				type: "boolean",
-				default: false,
-			},
-		},
-		strict: false,
-		allowPositionals: false,
-});
+const args = parseMainArgs(Bun.argv.slice(2));
 
-	if (values.version) {
+
+
+	if (args.version) {
 		console.log(version);
 		process.exit(0);
 	}
-	if (values.mode === "stdio") {
+	if (args.mode === "stdio") {
 		const server = createMcpServer({ version });
 		await server.connect(new StdioServerTransport());
-	} else if (values.mode === "cli") {
+	} else if (args.mode === "cli") {
 		const parsed = parseCliArgs(Bun.argv.slice(2));
 		if (parsed.help) {
 			printHelp();
@@ -95,9 +75,9 @@ const { values } = parseArgs({
 		}
 		const result = await runTool(parsed.tool, parsed.args, parsed.verbose);
 		console.log(JSON.stringify(result, null, 2));
-	} else if (values.mode === "http") {
-		const host = String(values["http-host"] || "0.0.0.0");
-		const port = String(values["http-port"] || "3838");
+	} else if (args.mode === "http") {
+		const host = String(args.httpHost || "0.0.0.0");
+		const port = String(args.httpPort || "3838");
 		const app = express();
 		app.use(express.json());
 
