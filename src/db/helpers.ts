@@ -23,7 +23,7 @@ export async function pgListSchemas(pg: SQL): Promise<Array<PgSchemaItem>> {
 
 export async function pgListTables(
   pg: SQL,
-  schemaName: string = "public"
+  schemaName: string = "public",
 ): Promise<Array<PgTableItem>> {
   const result: Array<PgTableItem> = await pg`
         select table_name, table_schema as schema_name
@@ -38,7 +38,7 @@ export async function pgListTables(
 export async function pgListTableColumns(
   pg: SQL,
   tableName: string,
-  schemaName: string = "public"
+  schemaName: string = "public",
 ): Promise<Array<PgColumnItem>> {
   const result: Array<PgColumnItem> = await pg`
         select
@@ -57,7 +57,7 @@ export async function pgListTableColumns(
 export async function pgListTableForeignKeys(
   pg: SQL,
   tableName: string,
-  schemaName: string = "public"
+  schemaName: string = "public",
 ): Promise<Array<PgForeignKeyItem>> {
   const result: Array<PgForeignKeyItem> = await pg`
         select
@@ -88,7 +88,7 @@ export async function pgListTableForeignKeys(
 export async function pgListTableReferencedBy(
   pg: SQL,
   tableName: string,
-  schemaName: string = "public"
+  schemaName: string = "public",
 ): Promise<Array<PgReferencedByItem>> {
   const result: Array<PgReferencedByItem> = await pg`
         select
@@ -133,7 +133,11 @@ export async function executeReadOnlyQuery(pg: SQL, sql: string) {
   });
 }
 
-export async function pgGetTableOwner(pg: SQL, tableName: string, schemaName: string = "public"): Promise<string> {
+export async function pgGetTableOwner(
+  pg: SQL,
+  tableName: string,
+  schemaName: string = "public",
+): Promise<string> {
   const result: Array<{ owner: string }> = await pg`
     SELECT pg_get_userbyid(c.relowner) AS owner
     FROM pg_class c
@@ -143,7 +147,18 @@ export async function pgGetTableOwner(pg: SQL, tableName: string, schemaName: st
   return result[0]?.owner ?? "";
 }
 
-export async function pgGetTableConstraints(pg: SQL, tableName: string, schemaName: string = "public", constraintType: string): Promise<Array<{ constraint_name: string; column_name: string; ordinal_position: number }>> {
+export async function pgGetTableConstraints(
+  pg: SQL,
+  tableName: string,
+  schemaName: string = "public",
+  constraintType: string,
+): Promise<
+  Array<{
+    constraint_name: string;
+    column_name: string;
+    ordinal_position: number;
+  }>
+> {
   const result = await pg`
     SELECT tc.constraint_name, kcu.column_name, kcu.ordinal_position
     FROM information_schema.table_constraints tc
@@ -157,26 +172,47 @@ export async function pgGetTableConstraints(pg: SQL, tableName: string, schemaNa
   return result;
 }
 
-export async function pgGetPrimaryKey(pg: SQL, tableName: string, schemaName: string = "public"): Promise<{ constraint_name: string; columns: string[] } | null> {
-  const rows = await pgGetTableConstraints(pg, tableName, schemaName, 'PRIMARY KEY');
+export async function pgGetPrimaryKey(
+  pg: SQL,
+  tableName: string,
+  schemaName: string = "public",
+): Promise<{ constraint_name: string; columns: string[] } | null> {
+  const rows = await pgGetTableConstraints(
+    pg,
+    tableName,
+    schemaName,
+    "PRIMARY KEY",
+  );
   if (rows.length === 0) return null;
   const constraint_name = rows[0]!.constraint_name;
-  const columns = rows.map(r => r.column_name);
+  const columns = rows.map((r) => r.column_name);
   return { constraint_name, columns };
 }
 
-export async function pgGetUniqueConstraints(pg: SQL, tableName: string, schemaName: string = "public"): Promise<Array<{ constraint_name: string; columns: string[] }>> {
-  const rows = await pgGetTableConstraints(pg, tableName, schemaName, 'UNIQUE');
+export async function pgGetUniqueConstraints(
+  pg: SQL,
+  tableName: string,
+  schemaName: string = "public",
+): Promise<Array<{ constraint_name: string; columns: string[] }>> {
+  const rows = await pgGetTableConstraints(pg, tableName, schemaName, "UNIQUE");
   const map = new Map<string, string[]>();
   for (const r of rows) {
     if (!map.has(r.constraint_name)) map.set(r.constraint_name, []);
     map.get(r.constraint_name)!.push(r.column_name);
   }
-  return Array.from(map.entries()).map(([constraint_name, columns]) => ({ constraint_name, columns }));
+  return Array.from(map.entries()).map(([constraint_name, columns]) => ({
+    constraint_name,
+    columns,
+  }));
 }
 
-export async function pgGetCheckConstraints(pg: SQL, tableName: string, schemaName: string = "public"): Promise<Array<{ constraint_name: string; check_clause: string }>> {
-  const result: Array<{ constraint_name: string; check_clause: string }> = await pg`
+export async function pgGetCheckConstraints(
+  pg: SQL,
+  tableName: string,
+  schemaName: string = "public",
+): Promise<Array<{ constraint_name: string; check_clause: string }>> {
+  const result: Array<{ constraint_name: string; check_clause: string }> =
+    await pg`
     SELECT conname AS constraint_name, pg_get_constraintdef(pg_constraint.oid) AS check_clause
     FROM pg_constraint
     JOIN pg_class ON pg_class.oid = pg_constraint.conrelid
@@ -188,8 +224,13 @@ export async function pgGetCheckConstraints(pg: SQL, tableName: string, schemaNa
   return result;
 }
 
-export async function pgGetExcludeConstraints(pg: SQL, tableName: string, schemaName: string = "public"): Promise<Array<{ constraint_name: string; definition: string }>> {
-  const result: Array<{ constraint_name: string; definition: string }> = await pg`
+export async function pgGetExcludeConstraints(
+  pg: SQL,
+  tableName: string,
+  schemaName: string = "public",
+): Promise<Array<{ constraint_name: string; definition: string }>> {
+  const result: Array<{ constraint_name: string; definition: string }> =
+    await pg`
     SELECT conname AS constraint_name, pg_get_constraintdef(pg_constraint.oid) AS definition
     FROM pg_constraint
     JOIN pg_class ON pg_class.oid = pg_constraint.conrelid
@@ -201,7 +242,11 @@ export async function pgGetExcludeConstraints(pg: SQL, tableName: string, schema
   return result;
 }
 
-export async function pgGetTriggers(pg: SQL, tableName: string, schemaName: string = "public"): Promise<Array<PgTriggerItem>> {
+export async function pgGetTriggers(
+  pg: SQL,
+  tableName: string,
+  schemaName: string = "public",
+): Promise<Array<PgTriggerItem>> {
   const result: Array<PgTriggerItem> = await pg`
     SELECT trigger_name, action_timing, event_manipulation, action_statement, action_orientation
     FROM information_schema.triggers
@@ -211,7 +256,11 @@ export async function pgGetTriggers(pg: SQL, tableName: string, schemaName: stri
   return result;
 }
 
-export async function pgListTableForeignKeysEnhanced(pg: SQL, tableName: string, schemaName: string = "public"): Promise<Array<PgForeignKeyItemEnhanced>> {
+export async function pgListTableForeignKeysEnhanced(
+  pg: SQL,
+  tableName: string,
+  schemaName: string = "public",
+): Promise<Array<PgForeignKeyItemEnhanced>> {
   const result: Array<PgForeignKeyItemEnhanced> = await pg`
     SELECT
       tc.constraint_name,
@@ -242,7 +291,10 @@ export async function pgListTableForeignKeysEnhanced(pg: SQL, tableName: string,
   return result;
 }
 
-export async function pgListTriggerFunctions(pg: SQL, schemaName?: string): Promise<Array<PgTriggerFunctionItem>> {
+export async function pgListTriggerFunctions(
+  pg: SQL,
+  schemaName?: string,
+): Promise<Array<PgTriggerFunctionItem>> {
   if (schemaName) {
     const result: Array<PgTriggerFunctionItem> = await pg`
       SELECT
@@ -277,8 +329,18 @@ export async function pgListTriggerFunctions(pg: SQL, schemaName?: string): Prom
   }
 }
 
-export async function pgDescribeFunction(pg: SQL, functionName: string, schemaName: string = 'public'): Promise<PgTriggerFunctionDetails> {
-  const funcInfo: Array<{ schema_name: string; function_name: string; language: string; return_type: string; oid: string }> = await pg`
+export async function pgDescribeFunction(
+  pg: SQL,
+  functionName: string,
+  schemaName: string = "public",
+): Promise<PgTriggerFunctionDetails> {
+  const funcInfo: Array<{
+    schema_name: string;
+    function_name: string;
+    language: string;
+    return_type: string;
+    oid: string;
+  }> = await pg`
     SELECT
       n.nspname AS schema_name,
       p.proname AS function_name,
@@ -294,25 +356,53 @@ export async function pgDescribeFunction(pg: SQL, functionName: string, schemaNa
   if (funcInfo.length === 0) {
     throw new Error(`Function ${schemaName}.${functionName} not found`);
   }
-  const { schema_name, function_name, language, return_type, oid } = funcInfo[0]!;
+  const { schema_name, function_name, language, return_type, oid } =
+    funcInfo[0]!;
 
   const definitionRows: Array<{ definition: string }> = await pg`
     SELECT pg_get_functiondef(${oid}::oid) AS definition
   `;
-  const definition = definitionRows[0]?.definition ?? '';
+  const definition = definitionRows[0]?.definition ?? "";
 
-  const argRows: Array<{ args: string }> = await pg`
-    SELECT pg_get_function_arguments(${oid}::oid) AS args
-  `;
-  const argsStr = argRows[0]?.args ?? '';
-  const params: Array<{ name: string; type: string; mode: string }> = argsStr
-    ? argsStr.split(',').map(part => {
-        const m = part.trim().match(/^(\w+)\s+(\w+)$/);
-        if (!m) return { name: '', type: '', mode: 'IN' };
-        return { name: m[1]!, type: m[2]!, mode: 'IN' };
-      })
-    : [];
-
+  const params: Array<{ name: string; type: string; mode: string }> = await pg`
+     WITH function_oid AS (
+       SELECT p.oid
+       FROM pg_proc p
+       JOIN pg_namespace n ON p.pronamespace = n.oid
+       WHERE n.nspname = ${schema_name} AND p.proname = ${function_name}
+       LIMIT 1
+     ),
+     parameter_data AS (
+       SELECT
+         p.oid,
+         unnest(p.proargnames) AS arg_name,
+         unnest(p.proargtypes) AS arg_type,
+         'IN'::text AS arg_mode
+       FROM pg_proc p, function_oid f
+       WHERE p.oid = f.oid AND p.proallargtypes IS NULL
+       UNION ALL
+       SELECT
+         p.oid,
+         unnest(p.proargnames) AS arg_name,
+         unnest(p.proallargtypes) AS arg_type,
+         CASE mode_char
+           WHEN 'i' THEN 'IN'
+           WHEN 'o' THEN 'OUT'
+           WHEN 'b' THEN 'INOUT'
+           WHEN 'v' THEN 'VARIADIC'
+           ELSE 'UNKNOWN'
+         END AS arg_mode
+       FROM pg_proc p, function_oid f,
+         LATERAL unnest(p.proargmodes) AS mode_char
+       WHERE p.oid = f.oid AND p.proallargtypes IS NOT NULL
+     )
+     SELECT
+       arg_name AS name,
+       format_type(arg_type, NULL) AS type,
+       arg_mode AS mode
+     FROM parameter_data
+     ORDER BY arg_name
+   `;
 
   const isTriggerFunction = await pg`
     SELECT EXISTS (

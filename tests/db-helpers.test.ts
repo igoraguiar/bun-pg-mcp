@@ -415,4 +415,22 @@ describe("Trigger Function Helpers", () => {
     expect(details.definition).toContain("CREATE OR REPLACE FUNCTION");
     expect(details.definition).toContain("add_numbers");
   });
+
+  test("pgDescribeFunction should describe a function with OUT parameter", async () => {
+    await pg`DROP FUNCTION IF EXISTS public.get_pair(out a integer, out b text)`;
+    await pg`CREATE OR REPLACE FUNCTION public.get_pair(OUT a integer, OUT b text) AS $$ BEGIN a := 1; b := 'x'; END; $$ LANGUAGE plpgsql`;
+    const details = await pgDescribeFunction(pg, "get_pair", "public");
+    expect(details.function_name).toBe("get_pair");
+    expect(details.language).toBe("plpgsql");
+    expect(details.is_trigger_function).toBe(false);
+    expect(details.parameters).toHaveLength(2);
+    const p1 = details.parameters[0]!;
+    const p2 = details.parameters[1]!;
+    expect(p1.name).toBe("a");
+    expect(p1.type).toBe("integer");
+    expect(p1.mode).toBe("OUT");
+    expect(p2.name).toBe("b");
+    expect(p2.type).toBe("text");
+    expect(p2.mode).toBe("OUT");
+  });
 });
