@@ -371,37 +371,29 @@ export async function pgDescribeFunction(
        JOIN pg_namespace n ON p.pronamespace = n.oid
        WHERE n.nspname = ${schema_name} AND p.proname = ${function_name}
        LIMIT 1
-     ),
-     parameter_data AS (
-       SELECT
-         p.oid,
-         unnest(p.proargnames) AS arg_name,
-         unnest(p.proargtypes) AS arg_type,
-         'IN'::text AS arg_mode
-       FROM pg_proc p, function_oid f
-       WHERE p.oid = f.oid AND p.proallargtypes IS NULL
-       UNION ALL
-       SELECT
-         p.oid,
-         unnest(p.proargnames) AS arg_name,
-         unnest(p.proallargtypes) AS arg_type,
-         CASE mode_char
-           WHEN 'i' THEN 'IN'
-           WHEN 'o' THEN 'OUT'
-           WHEN 'b' THEN 'INOUT'
-           WHEN 'v' THEN 'VARIADIC'
-           ELSE 'UNKNOWN'
-         END AS arg_mode
-       FROM pg_proc p, function_oid f,
-         LATERAL unnest(p.proargmodes) AS mode_char
-       WHERE p.oid = f.oid AND p.proallargtypes IS NOT NULL
      )
      SELECT
-       arg_name AS name,
-       format_type(arg_type, NULL) AS type,
-       arg_mode AS mode
-     FROM parameter_data
-     ORDER BY arg_name
+       t.name AS name,
+       format_type(t.type_oid, NULL) AS type,
+       'IN' AS mode
+     FROM pg_proc p, function_oid f,
+       LATERAL unnest(p.proargnames, p.proargtypes) WITH ORDINALITY AS t(name, type_oid, ord)
+     WHERE p.oid = f.oid AND p.proallargtypes IS NULL
+     UNION ALL
+     SELECT
+       t.name AS name,
+       format_type(t.type_oid, NULL) AS type,
+       CASE t.mode_char
+         WHEN 'i' THEN 'IN'
+         WHEN 'o' THEN 'OUT'
+         WHEN 'b' THEN 'INOUT'
+         WHEN 'v' THEN 'VARIADIC'
+         ELSE 'UNKNOWN'
+       END AS mode
+     FROM pg_proc p, function_oid f,
+       LATERAL unnest(p.proargnames, p.proallargtypes, p.proargmodes) WITH ORDINALITY AS t(name, type_oid, mode_char, ord)
+     WHERE p.oid = f.oid AND p.proallargtypes IS NOT NULL
+     ORDER BY name
    `;
 
   const isTriggerFunction = await pg`
