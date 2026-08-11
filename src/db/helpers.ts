@@ -245,7 +245,7 @@ export async function pgListTableForeignKeysEnhanced(pg: SQL, tableName: string,
 export async function pgListTriggerFunctions(pg: SQL, schemaName?: string): Promise<Array<PgTriggerFunctionItem>> {
   if (schemaName) {
     const result: Array<PgTriggerFunctionItem> = await pg`
-      SELECT
+      SELECT DISTINCT
         n.nspname AS schema_name,
         p.proname AS function_name,
         l.lanname AS language,
@@ -253,13 +253,14 @@ export async function pgListTriggerFunctions(pg: SQL, schemaName?: string): Prom
       FROM pg_proc p
       JOIN pg_namespace n ON n.oid = p.pronamespace
       JOIN pg_language l ON l.oid = p.prolang
+      JOIN pg_trigger t ON t.tgfoid = p.oid
       WHERE p.prokind = 'f' AND n.nspname = ${schemaName}
       ORDER BY n.nspname, p.proname
     `;
     return result;
   } else {
     const result: Array<PgTriggerFunctionItem> = await pg`
-      SELECT
+      SELECT DISTINCT
         n.nspname AS schema_name,
         p.proname AS function_name,
         l.lanname AS language,
@@ -267,6 +268,7 @@ export async function pgListTriggerFunctions(pg: SQL, schemaName?: string): Prom
       FROM pg_proc p
       JOIN pg_namespace n ON n.oid = p.pronamespace
       JOIN pg_language l ON l.oid = p.prolang
+      JOIN pg_trigger t ON t.tgfoid = p.oid
       WHERE p.prokind = 'f'
       ORDER BY n.nspname, p.proname
     `;
