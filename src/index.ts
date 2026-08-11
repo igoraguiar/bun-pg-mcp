@@ -51,6 +51,36 @@ if (Bun.main === import.meta.path) {
 				type: "boolean",
 				default: false,
 			},
+			tool: {
+				type: "string",
+			},
+			schema: {
+				type: "string",
+			},
+			database: {
+				type: "string",
+			},
+			format: {
+				type: "string",
+			},
+			verbose: {
+				type: "boolean",
+			},
+			help: {
+				type: "string",
+			},
+			query: {
+				type: "string",
+			},
+			name: {
+				type: "string",
+			},
+			url: {
+				type: "string",
+			},
+			ttl: {
+				type: "string",
+			},
 		},
 		strict: false,
 		allowPositionals: false,
@@ -79,12 +109,19 @@ if (Bun.main === import.meta.path) {
 			process.exit(1);
 		}
 		if (parsed.format !== "json") {
-			const err = { tool: parsed.tool, durationMs: 0, timestamp: new Date().toISOString(), error: `Unsupported format '${parsed.format}'. Only 'json' is supported.` };
+			const err = {
+				tool: parsed.tool,
+				durationMs: 0,
+				timestamp: new Date().toISOString(),
+				error: `Unsupported format '${parsed.format}'. Only 'json' is supported.`,
+			};
 			console.log(JSON.stringify(err, null, 2));
 			process.exit(0);
 		}
 		if (parsed.verbose) {
-			console.error(`CLI: running tool ${parsed.tool} with args ${JSON.stringify(parsed.args)}`);
+			console.error(
+				`CLI: running tool ${parsed.tool} with args ${JSON.stringify(parsed.args)}`,
+			);
 		}
 		const result = await runTool(parsed.tool, parsed.args, parsed.verbose);
 		console.log(JSON.stringify(result, null, 2));
