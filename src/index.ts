@@ -9,6 +9,7 @@ import { randomUUID } from "crypto";
 import { createMcpServer } from "./server";
 import { version } from "../package.json";
 import { resolve } from "path";
+import { parseCliArgs, printHelp, printToolHelp } from "./cli";
 
 async function loadEnvFile(filePath: string) {
   try {
@@ -31,7 +32,7 @@ if (envFileExists) {
 }
 
 if (Bun.main === import.meta.path) {
-  const { values, positionals } = parseArgs({
+  const { values } = parseArgs({
     args: Bun.argv.slice(2),
     options: {
       mode: {
@@ -51,7 +52,7 @@ if (Bun.main === import.meta.path) {
         default: false,
       },
     },
-    strict: true,
+    strict: false,
     allowPositionals: false,
   });
 
@@ -62,9 +63,26 @@ if (Bun.main === import.meta.path) {
   if (values.mode === "stdio") {
     const server = createMcpServer({ version });
     await server.connect(new StdioServerTransport());
+  } else if (values.mode === "cli") {
+    const parsed = parseCliArgs(Bun.argv.slice(2));
+    if (parsed.help) {
+      printHelp();
+      process.exit(0);
+    }
+    if (parsed.helpTool) {
+      printToolHelp(parsed.helpTool);
+      process.exit(0);
+    }
+    if (!parsed.tool) {
+      console.error("Error: --tool is required for CLI mode");
+      printHelp();
+      process.exit(1);
+    }
+    // No execution yet – scaffold only
+    console.log(JSON.stringify({ tool: parsed.tool, args: parsed.args, verbose: parsed.verbose }));
   } else if (values.mode === "http") {
-    const host = values["http-host"] || "0.0.0.0";
-    const port = values["http-port"] || "3838";
+    const host = String(values["http-host"] || "0.0.0.0");
+    const port = String(values["http-port"] || "3838");
     const app = express();
     app.use(express.json());
 
