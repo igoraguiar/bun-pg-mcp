@@ -220,7 +220,7 @@ export async function pgListTableForeignKeysEnhanced(pg: SQL, tableName: string,
       rc.match_option,
       rc.update_rule,
       rc.delete_rule,
-      tc.is_deferrable
+      tc.is_deferrable AS deferrable
     FROM information_schema.table_constraints tc
     JOIN information_schema.key_column_usage kcu
       ON tc.constraint_name = kcu.constraint_name
