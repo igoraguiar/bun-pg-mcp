@@ -405,9 +405,13 @@ describe("Trigger Function Helpers", () => {
     expect(details.language).toBe("sql");
     expect(details.return_type).toBe("integer");
     expect(details.is_trigger_function).toBe(false);
-    expect(Array.isArray(details.parameters)).toBe(true);
-    // Parameters may be empty in some PG versions for SQL functions; check at least definition is correct
-    expect(details.definition).toContain("CREATE OR REPLACE FUNCTION");
+    expect(details.parameters).toHaveLength(2);
+    const p1 = details.parameters[0]!;
+    const p2 = details.parameters[1]!;
+    expect(p1.name).toBe("a");
+    expect(p1.type).toBe("integer");
+    expect(p1.mode).toBe("IN");
+    expect(p2.name).toBe("b");
     expect(details.definition).toContain("CREATE OR REPLACE FUNCTION");
     expect(details.definition).toContain("add_numbers");
   });

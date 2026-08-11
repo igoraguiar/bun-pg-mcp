@@ -301,15 +301,18 @@ export async function pgDescribeFunction(pg: SQL, functionName: string, schemaNa
   `;
   const definition = definitionRows[0]?.definition ?? '';
 
-  const params: Array<{ name: string; type: string; mode: string }> = await pg`
-    SELECT
-      parameter_name AS name,
-      data_type AS type,
-      parameter_mode AS mode
-    FROM information_schema.parameters
-    WHERE specific_schema = ${schema_name} AND specific_name = ${function_name}
-    ORDER BY ordinal_position
+  const argRows: Array<{ args: string }> = await pg`
+    SELECT pg_get_function_arguments(${oid}::oid) AS args
   `;
+  const argsStr = argRows[0]?.args ?? '';
+  const params: Array<{ name: string; type: string; mode: string }> = argsStr
+    ? argsStr.split(',').map(part => {
+        const m = part.trim().match(/^(\w+)\s+(\w+)$/);
+        if (!m) return { name: '', type: '', mode: 'IN' };
+        return { name: m[1]!, type: m[2]!, mode: 'IN' };
+      })
+    : [];
+
 
   const isTriggerFunction = await pg`
     SELECT EXISTS (
