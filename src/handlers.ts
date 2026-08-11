@@ -249,8 +249,8 @@ handlers.push({
 });
 
 handlers.push({
-  name: "pg_describe_trigger_function",
-  description: "Get details and definition of a trigger function",
+  name: "pg_describe_function",
+  description: "Get details and definition of a function, works for trigger functions too",
   schema: { schema: z.string().default("public"), function: z.string(), database: z.string().optional() },
   handler: async (configManager, pool, args) => {
     const schema = args.schema ?? "public";
