@@ -7,6 +7,8 @@ import type {
   PgReferencedByItem,
   PgForeignKeyItemEnhanced,
   PgTriggerItem,
+  PgTriggerFunctionItem,
+  PgTriggerFunctionDetails,
 } from "./types";
 
 export async function pgListSchemas(pg: SQL): Promise<Array<PgSchemaItem>> {
@@ -238,4 +240,88 @@ export async function pgListTableForeignKeysEnhanced(pg: SQL, tableName: string,
     ORDER BY kcu.ordinal_position
   `;
   return result;
+}
+
+export async function pgListTriggerFunctions(pg: SQL, schemaName?: string): Promise<Array<PgTriggerFunctionItem>> {
+  if (schemaName) {
+    const result: Array<PgTriggerFunctionItem> = await pg`
+      SELECT
+        n.nspname AS schema_name,
+        p.proname AS function_name,
+        l.lanname AS language,
+        format_type(p.prorettype, NULL) AS return_type
+      FROM pg_proc p
+      JOIN pg_namespace n ON n.oid = p.pronamespace
+      JOIN pg_language l ON l.oid = p.prolang
+      WHERE p.prokind = 'f' AND n.nspname = ${schemaName}
+      ORDER BY n.nspname, p.proname
+    `;
+    return result;
+  } else {
+    const result: Array<PgTriggerFunctionItem> = await pg`
+      SELECT
+        n.nspname AS schema_name,
+        p.proname AS function_name,
+        l.lanname AS language,
+        format_type(p.prorettype, NULL) AS return_type
+      FROM pg_proc p
+      JOIN pg_namespace n ON n.oid = p.pronamespace
+      JOIN pg_language l ON l.oid = p.prolang
+      WHERE p.prokind = 'f'
+      ORDER BY n.nspname, p.proname
+    `;
+    return result;
+  }
+}
+
+export async function pgDescribeTriggerFunction(pg: SQL, functionName: string, schemaName: string = 'public'): Promise<PgTriggerFunctionDetails> {
+  const funcInfo: Array<{ schema_name: string; function_name: string; language: string; return_type: string; oid: string }> = await pg`
+    SELECT
+      n.nspname AS schema_name,
+      p.proname AS function_name,
+      l.lanname AS language,
+      format_type(p.prorettype, NULL) AS return_type,
+      p.oid::text AS oid
+    FROM pg_proc p
+    JOIN pg_namespace n ON n.oid = p.pronamespace
+    JOIN pg_language l ON l.oid = p.prolang
+    WHERE p.proname = ${functionName} AND n.nspname = ${schemaName}
+    LIMIT 1
+  `;
+  if (funcInfo.length === 0) {
+    throw new Error(`Function ${schemaName}.${functionName} not found`);
+  }
+  const { schema_name, function_name, language, return_type, oid } = funcInfo[0]!;
+
+  const definitionRows: Array<{ definition: string }> = await pg`
+    SELECT pg_get_functiondef(${oid}::oid) AS definition
+  `;
+  const definition = definitionRows[0]?.definition ?? '';
+
+  const params: Array<{ name: string; type: string; mode: string }> = await pg`
+    SELECT
+      parameter_name AS name,
+      data_type AS type,
+      parameter_mode AS mode
+    FROM information_schema.parameters
+    WHERE specific_schema = ${schema_name} AND specific_name = ${function_name}
+    ORDER BY ordinal_position
+  `;
+
+  const isTriggerFunction = await pg`
+    SELECT EXISTS (
+      SELECT 1 FROM pg_trigger t
+      WHERE t.tgfoid = ${oid}::oid
+    ) AS is_trigger
+  `;
+
+  return {
+    schema_name,
+    function_name,
+    language,
+    return_type,
+    parameters: params,
+    definition,
+    is_trigger_function: Boolean(isTriggerFunction[0]?.is_trigger),
+  };
 }

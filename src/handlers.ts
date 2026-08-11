@@ -16,6 +16,8 @@ import {
   pgGetExcludeConstraints,
   pgGetTriggers,
   pgListTableForeignKeysEnhanced,
+  pgListTriggerFunctions,
+  pgDescribeTriggerFunction,
 } from "./db/helpers";
 import type { PgTableDetails, PgTableFullDetails } from "./db/types";
 
@@ -230,6 +232,34 @@ handlers.push({
       })),
     };
     return result;
+  },
+});
+
+handlers.push({
+  name: "pg_list_trigger_functions",
+  description: "List trigger functions in a schema",
+  schema: { schema: z.string().optional(), database: z.string().optional() },
+  handler: async (configManager, pool, args) => {
+    const schema = args.schema ?? undefined;
+    const name = await resolveDatabaseName(configManager, args.database);
+    const { url } = await configManager.getConfig(name);
+    const client = pool.get(url);
+    return pgListTriggerFunctions(client, schema);
+  },
+});
+
+handlers.push({
+  name: "pg_describe_trigger_function",
+  description: "Get details and definition of a trigger function",
+  schema: { schema: z.string().default("public"), function: z.string(), database: z.string().optional() },
+  handler: async (configManager, pool, args) => {
+    const schema = args.schema ?? "public";
+    const func = args.function;
+    if (!func) throw new Error("Function name is required");
+    const name = await resolveDatabaseName(configManager, args.database);
+    const { url } = await configManager.getConfig(name);
+    const client = pool.get(url);
+    return pgDescribeTriggerFunction(client, func, schema);
   },
 });
 

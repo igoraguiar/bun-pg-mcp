@@ -81,3 +81,20 @@ export type PgTableFullDetails = PgTableItem & {
   referenced_by: PgReferencedByItem[];
   triggers: PgTriggerItem[];
 };
+
+export type PgTriggerFunctionItem = {
+  schema_name: string;
+  function_name: string;
+  language: string;
+  return_type: string;
+};
+
+export type PgTriggerFunctionDetails = {
+  schema_name: string;
+  function_name: string;
+  language: string;
+  return_type: string;
+  parameters: Array<{ name: string; type: string; mode: string }>;
+  definition: string;
+  is_trigger_function: boolean;
+};
