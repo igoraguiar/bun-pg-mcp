@@ -100,6 +100,21 @@ export function printHelp() {
 	}
 }
 
+function formatSchema(schema: Record<string, any>) {
+	const lines: string[] = [];
+	for (const [key, zobj] of Object.entries(schema)) {
+		const def = zobj?._def;
+		let type = "unknown";
+		if (def) {
+			if (def.typeName === "ZodOptional") type = `${def.innerType._def.typeName}?`;
+			else if (def.typeName === "ZodDefault") type = `${def.innerType._def.typeName} = default`;
+			else type = def.typeName.replace("Zod", "").toLowerCase();
+		}
+		lines.push(`  ${key}: ${type}`);
+	}
+	return lines.join("\n");
+}
+
 export function printToolHelp(toolName: string) {
 	const h = handlers.find((h) => h.name === toolName);
 	if (!h) {
@@ -108,7 +123,8 @@ export function printToolHelp(toolName: string) {
 	}
 	console.log(`Tool: ${h.name}`);
 	console.log(`Description: ${h.description}`);
-	console.log("Schema:", JSON.stringify(h.schema, null, 2));
+	console.log("Args:");
+	console.log(formatSchema(h.schema));
 	console.log(`Result format:`);
 	console.log(`{
   "tool": "${h.name}",
