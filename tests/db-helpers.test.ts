@@ -9,6 +9,12 @@ import {
   pgListTableForeignKeys,
   pgListTableReferencedBy,
   executeReadOnlyQuery,
+  pgGetTableOwner,
+  pgGetPrimaryKey,
+  pgGetUniqueConstraints,
+  pgListTableForeignKeysEnhanced,
+  pgListTriggerFunctions,
+  pgDescribeTriggerFunction,
 } from "../src/db/helpers";
 
 let cleanup: () => Promise<void>;
@@ -342,5 +348,52 @@ describe("Database Helpers Integration Tests", () => {
         )
       ).rejects.toThrow();
     });
+  });
+});
+
+describe("Enhanced Table Helpers", () => {
+  test("pgGetTableOwner should return owner", async () => {
+    const owner = await pgGetTableOwner(pg, "users", "public");
+    expect(owner).toBeDefined();
+    expect(typeof owner).toBe("string");
+  });
+
+  test("pgGetPrimaryKey should find primary key", async () => {
+    const pk = await pgGetPrimaryKey(pg, "users", "public");
+    expect(pk).not.toBeNull();
+    expect(pk?.constraint_name).toBeDefined();
+    expect(pk?.columns).toContain("id");
+  });
+
+  test("pgGetUniqueConstraints should find unique constraints", async () => {
+    const uniques = await pgGetUniqueConstraints(pg, "users", "public");
+    expect(Array.isArray(uniques)).toBe(true);
+    const usernameUnique = uniques.find(u => u.constraint_name.includes("username"));
+    expect(usernameUnique).toBeDefined();
+  });
+
+  test("pgListTableForeignKeysEnhanced should return FK with rules", async () => {
+    const fks = await pgListTableForeignKeysEnhanced(pg, "posts", "public");
+    expect(fks.length).toBeGreaterThan(0);
+    const fk = fks[0];
+    expect(fk?.update_rule).toBeDefined();
+    expect(fk?.delete_rule).toBeDefined();
+    expect(fk?.match_option).toBeDefined();
+    expect(fk?.deferrable).toBeDefined();
+  });
+});
+
+describe("Trigger Function Helpers", () => {
+  test("pgListTriggerFunctions should list functions", async () => {
+    const funcs = await pgListTriggerFunctions(pg, "public");
+    expect(Array.isArray(funcs)).toBe(true);
+  });
+
+  test("pgDescribeTriggerFunction should describe a function", async () => {
+    await pg`CREATE OR REPLACE FUNCTION public.test_trig_func() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RETURN NEW; END; $$`;
+    const details = await pgDescribeTriggerFunction(pg, "test_trig_func", "public");
+    expect(details.function_name).toBe("test_trig_func");
+    expect(details.language).toBe("plpgsql");
+    expect(details.definition).toContain("CREATE OR REPLACE FUNCTION");
   });
 });
