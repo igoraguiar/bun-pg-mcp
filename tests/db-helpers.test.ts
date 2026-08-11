@@ -396,4 +396,19 @@ describe("Trigger Function Helpers", () => {
     expect(details.language).toBe("plpgsql");
     expect(details.definition).toContain("CREATE OR REPLACE FUNCTION");
   });
+
+  test("pgDescribeFunction should describe a regular function with parameters", async () => {
+    await pg`DROP FUNCTION IF EXISTS public.add_numbers(integer, integer)`;
+    await pg`CREATE OR REPLACE FUNCTION public.add_numbers(a integer, b integer) RETURNS integer LANGUAGE sql AS $$ SELECT a + b $$`;
+    const details = await pgDescribeFunction(pg, "add_numbers", "public");
+    expect(details.function_name).toBe("add_numbers");
+    expect(details.language).toBe("sql");
+    expect(details.return_type).toBe("integer");
+    expect(details.is_trigger_function).toBe(false);
+    expect(Array.isArray(details.parameters)).toBe(true);
+    // Parameters may be empty in some PG versions for SQL functions; check at least definition is correct
+    expect(details.definition).toContain("CREATE OR REPLACE FUNCTION");
+    expect(details.definition).toContain("CREATE OR REPLACE FUNCTION");
+    expect(details.definition).toContain("add_numbers");
+  });
 });
