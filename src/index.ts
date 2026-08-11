@@ -32,7 +32,7 @@ if (envFileExists) {
 }
 
 if (Bun.main === import.meta.path) {
-	const { values } = parseArgs({
+const { values } = parseArgs({
 		args: Bun.argv.slice(2),
 		options: {
 			mode: {
@@ -51,40 +51,10 @@ if (Bun.main === import.meta.path) {
 				type: "boolean",
 				default: false,
 			},
-			tool: {
-				type: "string",
-			},
-			schema: {
-				type: "string",
-			},
-			database: {
-				type: "string",
-			},
-			format: {
-				type: "string",
-			},
-			verbose: {
-				type: "boolean",
-			},
-			help: {
-				type: "string",
-			},
-			query: {
-				type: "string",
-			},
-			name: {
-				type: "string",
-			},
-			url: {
-				type: "string",
-			},
-			ttl: {
-				type: "string",
-			},
 		},
 		strict: false,
 		allowPositionals: false,
-	});
+});
 
 	if (values.version) {
 		console.log(version);
