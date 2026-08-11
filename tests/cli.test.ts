@@ -77,4 +77,18 @@ it("parses format flag", () => {
 		]);
 		expect(args.format).toBe("json");
 });
+
+it("parses global database flag and overrides args", () => {
+		const args = parseCliArgs([
+			"--mode",
+			"cli",
+			"--tool",
+			"pg_list_tables",
+			"--database",
+			"prod",
+			"--schema",
+			"public",
+		]);
+		expect(args.args.database).toBe("prod");
+});
 });

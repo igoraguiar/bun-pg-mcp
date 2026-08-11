@@ -18,6 +18,7 @@ export function parseCliArgs(argv: string[]) {
 	let helpTool: string | undefined;
 	let verbose = false;
 	let format = "json";
+	let database: string | undefined;
 
 	for (let i = 0; i < argv.length; i++) {
 		const token = argv[i];
@@ -45,6 +46,11 @@ export function parseCliArgs(argv: string[]) {
 			verbose = true;
 			continue;
 		}
+		if (token === "--database" || token === "-d") {
+			database = argv[i + 1];
+			i++;
+			continue;
+		}
 		if (token === "--format" || token === "-f") {
 			format = argv[i + 1] ?? "json";
 			i++;
@@ -54,7 +60,15 @@ export function parseCliArgs(argv: string[]) {
 			const key = token.slice(2);
 			const next = argv[i + 1];
 			if (next && !next.startsWith("--")) {
-				args[key] = coerceValue(next);
+				const val = coerceValue(next);
+				if (key in args) {
+								if (!Array.isArray(args[key])) {
+										args[key] = [args[key]];
+								}
+								args[key].push(val);
+				} else {
+								args[key] = val;
+				}
 				i++;
 			} else {
 				args[key] = true;
@@ -62,6 +76,9 @@ export function parseCliArgs(argv: string[]) {
 		}
 	}
 
+	if (database) {
+		args.database = database;
+	}
 	return { tool, args, help, helpTool, verbose, format };
 }
 
