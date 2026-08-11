@@ -9,8 +9,15 @@ import {
   pgListTableForeignKeys,
   pgListTableReferencedBy,
   executeReadOnlyQuery,
+  pgGetTableOwner,
+  pgGetPrimaryKey,
+  pgGetUniqueConstraints,
+  pgGetCheckConstraints,
+  pgGetExcludeConstraints,
+  pgGetTriggers,
+  pgListTableForeignKeysEnhanced,
 } from "./db/helpers";
-import type { PgTableDetails } from "./db/types";
+import type { PgTableDetails, PgTableFullDetails } from "./db/types";
 
 function redactCredentials(url: string): string {
   try {
@@ -152,6 +159,74 @@ handlers.push({
         referencing_table_name: rb.referencing_table_name,
         referencing_column_name: rb.referencing_column_name,
         referenced_column_name: rb.referenced_column_name,
+      })),
+    };
+    return result;
+  },
+});
+
+handlers.push({
+  name: "pg_describe_table_full",
+  description: "Get comprehensive PostgreSQL table details including constraints, owner, triggers and enhanced FK attributes",
+  schema: { schema: z.string().default("public"), table: z.string(), database: z.string().optional() },
+  handler: async (configManager, pool, args) => {
+    const schema = args.schema ?? "public";
+    const table = args.table;
+    if (!schema || !table) throw new Error("Schema and table are required");
+    const name = await resolveDatabaseName(configManager, args.database);
+    const { url } = await configManager.getConfig(name);
+    const client = pool.get(url);
+
+    const [columns, foreignKeysEnhanced, referencedBy, owner, primaryKey, uniqueConstraints, checkConstraints, excludeConstraints, triggers] = await Promise.all([
+      pgListTableColumns(client, table, schema),
+      pgListTableForeignKeysEnhanced(client, table, schema),
+      pgListTableReferencedBy(client, table, schema),
+      pgGetTableOwner(client, table, schema),
+      pgGetPrimaryKey(client, table, schema),
+      pgGetUniqueConstraints(client, table, schema),
+      pgGetCheckConstraints(client, table, schema),
+      pgGetExcludeConstraints(client, table, schema),
+      pgGetTriggers(client, table, schema),
+    ]);
+
+    const result: PgTableFullDetails = {
+      schema_name: schema,
+      table_name: table,
+      owner,
+      columns: columns.map(col => ({
+        column_name: col.column_name,
+        data_type: col.data_type,
+        is_nullable: col.is_nullable,
+        column_default: col.column_default,
+      })),
+      primary_key: primaryKey,
+      unique_constraints: uniqueConstraints,
+      check_constraints: checkConstraints,
+      exclude_constraints: excludeConstraints,
+      foreign_keys: foreignKeysEnhanced.map(fk => ({
+        constraint_name: fk.constraint_name,
+        column_name: fk.column_name,
+        referenced_table_schema: fk.referenced_table_schema,
+        referenced_table_name: fk.referenced_table_name,
+        referenced_column_name: fk.referenced_column_name,
+        match_option: fk.match_option,
+        update_rule: fk.update_rule,
+        delete_rule: fk.delete_rule,
+        deferrable: fk.deferrable,
+      })),
+      referenced_by: referencedBy.map(rb => ({
+        constraint_name: rb.constraint_name,
+        referencing_table_schema: rb.referencing_table_schema,
+        referencing_table_name: rb.referencing_table_name,
+        referencing_column_name: rb.referencing_column_name,
+        referenced_column_name: rb.referenced_column_name,
+      })),
+      triggers: triggers.map(t => ({
+        trigger_name: t.trigger_name,
+        action_timing: t.action_timing,
+        event_manipulation: t.event_manipulation,
+        action_statement: t.action_statement,
+        action_orientation: t.action_orientation,
       })),
     };
     return result;
