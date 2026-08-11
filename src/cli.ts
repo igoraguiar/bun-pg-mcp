@@ -93,26 +93,15 @@ export function getToolSchema(toolName: string) {
 }
 
 export function printHelp() {
-	console.log("Usage: pg-mcp --mode cli --tool <name> [--key value...]");
-	console.log("\nAvailable tools:");
-	for (const h of handlers) {
-		console.log(`  ${h.name} - ${h.description}`);
-	}
-}
-
-function formatSchema(schema: Record<string, any>) {
-	const lines: string[] = [];
-	for (const [key, zobj] of Object.entries(schema)) {
-		const def = zobj?._def;
-		let type = "unknown";
-		if (def) {
-			if (def.typeName === "ZodOptional") type = `${def.innerType._def.typeName}?`;
-			else if (def.typeName === "ZodDefault") type = `${def.innerType._def.typeName} = default`;
-			else type = def.typeName.replace("Zod", "").toLowerCase();
-		}
-		lines.push(`  ${key}: ${type}`);
-	}
-	return lines.join("\n");
+	const tools = handlers.map(h => ({
+		name: h.name,
+		description: h.description,
+		args: Object.keys(h.schema),
+	}));
+	console.log(JSON.stringify({
+		usage: "pg-mcp --mode cli --tool <name> [--key value...]",
+		tools,
+	}, null, 2));
 }
 
 export function printToolHelp(toolName: string) {
@@ -121,19 +110,22 @@ export function printToolHelp(toolName: string) {
 		console.error(`Tool ${toolName} not found`);
 		return;
 	}
-	console.log(`Tool: ${h.name}`);
-	console.log(`Description: ${h.description}`);
-	console.log("Args:");
-	console.log(formatSchema(h.schema));
-	console.log(`Result format:`);
-	console.log(`{
-  "tool": "${h.name}",
-  "durationMs": number,
-  "timestamp": "ISO-8601",
-  "result": <tool-specific data>
-  // or
-  "error": "string"
-}`);
+	const args = Object.keys(h.schema).map(k => ({ name: k }));
+	console.log(JSON.stringify({
+		tool: h.name,
+		description: h.description,
+		args,
+		resultFormat: {
+			type: "object",
+			properties: {
+				tool: "string",
+				durationMs: "number",
+				timestamp: "string",
+				result: "any",
+				error: "string?"
+			}
+		}
+	}, null, 2));
 }
 
 export async function runTool(
