@@ -17,6 +17,7 @@ export function parseCliArgs(argv: string[]) {
 	let help = false;
 	let helpTool: string | undefined;
 	let verbose = false;
+	let format = "json";
 
 	for (let i = 0; i < argv.length; i++) {
 		const token = argv[i];
@@ -44,6 +45,11 @@ export function parseCliArgs(argv: string[]) {
 			verbose = true;
 			continue;
 		}
+		if (token === "--format" || token === "-f") {
+			format = argv[i + 1] ?? "json";
+			i++;
+			continue;
+		}
 		if (token.startsWith("--")) {
 			const key = token.slice(2);
 			const next = argv[i + 1];
@@ -56,7 +62,7 @@ export function parseCliArgs(argv: string[]) {
 		}
 	}
 
-	return { tool, args, help, helpTool, verbose };
+	return { tool, args, help, helpTool, verbose, format };
 }
 
 export function listTools() {

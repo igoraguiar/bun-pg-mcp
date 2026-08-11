@@ -78,6 +78,14 @@ if (Bun.main === import.meta.path) {
 			printHelp();
 			process.exit(1);
 		}
+		if (parsed.format !== "json") {
+			const err = { tool: parsed.tool, durationMs: 0, timestamp: new Date().toISOString(), error: `Unsupported format '${parsed.format}'. Only 'json' is supported.` };
+			console.log(JSON.stringify(err, null, 2));
+			process.exit(0);
+		}
+		if (parsed.verbose) {
+			console.error(`CLI: running tool ${parsed.tool} with args ${JSON.stringify(parsed.args)}`);
+		}
 		const result = await runTool(parsed.tool, parsed.args, parsed.verbose);
 		console.log(JSON.stringify(result, null, 2));
 	} else if (values.mode === "http") {
