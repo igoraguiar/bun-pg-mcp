@@ -4,7 +4,7 @@
 
 **Blocked by:** None — can start immediately
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 - [ ] Handlers for all existing tools are pure functions accepting ConfigManager, SqlPool and args, returning result data
 - [ ] Registry exposes tool name, description and Zod schema for each tool

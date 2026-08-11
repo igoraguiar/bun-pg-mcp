@@ -4,7 +4,7 @@
 
 **Blocked by:** 05 — Global --database flag and smart coercion
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 - [ ] All tools from the handler registry are invocable via CLI
 - [ ] Config management tools correctly reconcile SqlPool after changes

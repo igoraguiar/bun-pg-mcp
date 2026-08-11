@@ -4,7 +4,7 @@
 
 **Blocked by:** 01 — Extract pure handlers and handler registry
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 - [ ] `--mode cli` is recognized and routes to CLI module
 - [ ] Arg parser builds args object from dynamic flags with smart coercion for numbers, booleans and repeated flags

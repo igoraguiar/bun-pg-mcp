@@ -4,7 +4,7 @@
 
 **Blocked by:** 01 — Extract pure handlers and handler registry, 02 — Scaffold CLI module with mode wiring and arg parsing
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 - [ ] `bun run src/index.ts --mode cli --tool pg_list_tables --schema public` returns valid JSON with result
 - [ ] Database resolution follows single-db vs multi-db rules

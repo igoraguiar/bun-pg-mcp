@@ -4,7 +4,7 @@
 
 **Blocked by:** 03 — CLI tracer for pg_list_tables end-to-end
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 - [ ] Success output shape is { tool, durationMs, timestamp, result }
 - [ ] Error output shape is { tool, durationMs, timestamp, error }

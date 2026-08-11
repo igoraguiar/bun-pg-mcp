@@ -4,7 +4,7 @@
 
 **Blocked by:** 04 — Output contract, error handling and UX flags
 
-**Status:** ready-for-agent
+**Status:** resolved
 
 - [ ] Global `--database` flag overrides tool arg when present
 - [ ] Repeated flags build arrays for tools expecting arrays
