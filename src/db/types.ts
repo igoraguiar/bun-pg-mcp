@@ -26,6 +26,13 @@ export type PgForeignKeyItem = {
   column_name: string;
 };
 
+export type PgForeignKeyItemEnhanced = PgForeignKeyItem & {
+  match_option: string | null;
+  update_rule: string | null;
+  delete_rule: string | null;
+  deferrable: string | null;
+};
+
 export type PgReferencedByItem = {
   constraint_name: string;
   referencing_table_schema: string;
@@ -38,4 +45,56 @@ export type PgTableDetails = PgTableItem & {
   columns: PgColumnItem[];
   foreign_keys: PgForeignKeyItem[];
   referenced_by: PgReferencedByItem[];
+};
+
+export type PgTriggerItem = {
+  trigger_name: string;
+  action_timing: string;
+  event_manipulation: string;
+  action_statement: string;
+  action_orientation: string | null;
+};
+
+export type PgConstraintColumns = {
+  constraint_name: string;
+  columns: string[];
+};
+
+export type PgCheckConstraint = {
+  constraint_name: string;
+  check_clause: string;
+};
+
+export type PgExcludeConstraint = {
+  constraint_name: string;
+  definition: string;
+};
+
+export type PgTableFullDetails = PgTableItem & {
+  owner: string;
+  columns: PgColumnItem[];
+  primary_key: PgConstraintColumns | null;
+  unique_constraints: PgConstraintColumns[];
+  check_constraints: PgCheckConstraint[];
+  exclude_constraints: PgExcludeConstraint[];
+  foreign_keys: PgForeignKeyItemEnhanced[];
+  referenced_by: PgReferencedByItem[];
+  triggers: PgTriggerItem[];
+};
+
+export type PgTriggerFunctionItem = {
+  schema_name: string;
+  function_name: string;
+  language: string;
+  return_type: string;
+};
+
+export type PgTriggerFunctionDetails = {
+  schema_name: string;
+  function_name: string;
+  language: string;
+  return_type: string;
+  parameters: Array<{ name: string; type: string; mode: string }>;
+  definition: string;
+  is_trigger_function: boolean;
 };

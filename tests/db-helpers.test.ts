@@ -9,6 +9,12 @@ import {
   pgListTableForeignKeys,
   pgListTableReferencedBy,
   executeReadOnlyQuery,
+  pgGetTableOwner,
+  pgGetPrimaryKey,
+  pgGetUniqueConstraints,
+  pgListTableForeignKeysEnhanced,
+  pgListTriggerFunctions,
+  pgDescribeFunction,
 } from "../src/db/helpers";
 
 let cleanup: () => Promise<void>;
@@ -342,5 +348,89 @@ describe("Database Helpers Integration Tests", () => {
         )
       ).rejects.toThrow();
     });
+  });
+});
+
+describe("Enhanced Table Helpers", () => {
+  test("pgGetTableOwner should return owner", async () => {
+    const owner = await pgGetTableOwner(pg, "users", "public");
+    expect(owner).toBeDefined();
+    expect(typeof owner).toBe("string");
+  });
+
+  test("pgGetPrimaryKey should find primary key", async () => {
+    const pk = await pgGetPrimaryKey(pg, "users", "public");
+    expect(pk).not.toBeNull();
+    expect(pk?.constraint_name).toBeDefined();
+    expect(pk?.columns).toContain("id");
+  });
+
+  test("pgGetUniqueConstraints should find unique constraints", async () => {
+    const uniques = await pgGetUniqueConstraints(pg, "users", "public");
+    expect(Array.isArray(uniques)).toBe(true);
+    const usernameUnique = uniques.find(u => u.constraint_name.includes("username"));
+    expect(usernameUnique).toBeDefined();
+  });
+
+  test("pgListTableForeignKeysEnhanced should return FK with rules", async () => {
+    const fks = await pgListTableForeignKeysEnhanced(pg, "posts", "public");
+    expect(fks.length).toBeGreaterThan(0);
+    const fk = fks[0];
+    expect(fk?.update_rule).toBeDefined();
+    expect(fk?.delete_rule).toBeDefined();
+    expect(fk?.match_option).toBeDefined();
+    expect(fk?.deferrable).toBeDefined();
+  });
+});
+
+describe("Trigger Function Helpers", () => {
+  test("pgListTriggerFunctions should list functions", async () => {
+    const funcs = await pgListTriggerFunctions(pg, "public");
+    expect(Array.isArray(funcs)).toBe(true);
+  });
+
+  test("pgDescribeFunction should describe a function", async () => {
+    await pg`CREATE OR REPLACE FUNCTION public.test_trig_func() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RETURN NEW; END; $$`;
+    const details = await pgDescribeFunction(pg, "test_trig_func", "public");
+    expect(details.function_name).toBe("test_trig_func");
+    expect(details.language).toBe("plpgsql");
+    expect(details.definition).toContain("CREATE OR REPLACE FUNCTION");
+  });
+
+  test("pgDescribeFunction should describe a regular function with parameters", async () => {
+    await pg`DROP FUNCTION IF EXISTS public.add_numbers(integer, integer)`;
+    await pg`CREATE OR REPLACE FUNCTION public.add_numbers(a integer, b integer) RETURNS integer LANGUAGE sql AS $$ SELECT a + b $$`;
+    const details = await pgDescribeFunction(pg, "add_numbers", "public");
+    expect(details.function_name).toBe("add_numbers");
+    expect(details.language).toBe("sql");
+    expect(details.return_type).toBe("integer");
+    expect(details.is_trigger_function).toBe(false);
+    expect(details.parameters).toHaveLength(2);
+    const p1 = details.parameters[0]!;
+    const p2 = details.parameters[1]!;
+    expect(p1.name).toBe("a");
+    expect(p1.type).toBe("integer");
+    expect(p1.mode).toBe("IN");
+    expect(p2.name).toBe("b");
+    expect(details.definition).toContain("CREATE OR REPLACE FUNCTION");
+    expect(details.definition).toContain("add_numbers");
+  });
+
+  test("pgDescribeFunction should describe a function with OUT parameter", async () => {
+    await pg`DROP FUNCTION IF EXISTS public.get_pair(out a integer, out b text)`;
+    await pg`CREATE OR REPLACE FUNCTION public.get_pair(OUT a integer, OUT b text) AS $$ BEGIN a := 1; b := 'x'; END; $$ LANGUAGE plpgsql`;
+    const details = await pgDescribeFunction(pg, "get_pair", "public");
+    expect(details.function_name).toBe("get_pair");
+    expect(details.language).toBe("plpgsql");
+    expect(details.is_trigger_function).toBe(false);
+    expect(details.parameters).toHaveLength(2);
+    const p1 = details.parameters[0]!;
+    const p2 = details.parameters[1]!;
+    expect(p1.name).toBe("a");
+    expect(p1.type).toBe("integer");
+    expect(p1.mode).toBe("OUT");
+    expect(p2.name).toBe("b");
+    expect(p2.type).toBe("text");
+    expect(p2.mode).toBe("OUT");
   });
 });
