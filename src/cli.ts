@@ -1,3 +1,4 @@
+import { z } from "zod";
 import { handlers } from "./handlers.js";
 import { ConfigManager } from "./config.js";
 import { SqlPool } from "./sql-pool.js";
@@ -62,12 +63,12 @@ export function parseCliArgs(argv: string[]) {
 			if (next && !next.startsWith("--")) {
 				const val = coerceValue(next);
 				if (key in args) {
-								if (!Array.isArray(args[key])) {
-										args[key] = [args[key]];
-								}
-								args[key].push(val);
+					if (!Array.isArray(args[key])) {
+						args[key] = [args[key]];
+					}
+					args[key].push(val);
 				} else {
-								args[key] = val;
+					args[key] = val;
 				}
 				i++;
 			} else {
@@ -110,10 +111,30 @@ export function printToolHelp(toolName: string) {
 	console.log("Schema:", JSON.stringify(h.schema, null, 2));
 }
 
-export async function runTool(toolName: string, args: Record<string, any>, _verbose = false) {
+export async function runTool(
+	toolName: string,
+	args: Record<string, any>,
+	_verbose = false,
+) {
 	const handler = handlers.find((h) => h.name === toolName);
 	if (!handler) {
-		return { tool: toolName, durationMs: 0, timestamp: new Date().toISOString(), error: `Tool ${toolName} not found` };
+		return {
+			tool: toolName,
+			durationMs: 0,
+			timestamp: new Date().toISOString(),
+			error: `Tool ${toolName} not found`,
+		};
+	}
+	// Zod pre-validation
+	try {
+		z.object(handler.schema).parse(args);
+	} catch (e: any) {
+		return {
+			tool: toolName,
+			durationMs: 0,
+			timestamp: new Date().toISOString(),
+			error: `Invalid arguments: ${e.message}`,
+		};
 	}
 	const configManager = new ConfigManager();
 	const pool = new SqlPool();
@@ -121,9 +142,19 @@ export async function runTool(toolName: string, args: Record<string, any>, _verb
 	try {
 		const result = await handler.handler(configManager, pool, args);
 		const durationMs = Math.round(performance.now() - start);
-		return { tool: toolName, durationMs, timestamp: new Date().toISOString(), result };
+		return {
+			tool: toolName,
+			durationMs,
+			timestamp: new Date().toISOString(),
+			result,
+		};
 	} catch (err: any) {
 		const durationMs = Math.round(performance.now() - start);
-		return { tool: toolName, durationMs, timestamp: new Date().toISOString(), error: err?.message ?? "Unknown error" };
+		return {
+			tool: toolName,
+			durationMs,
+			timestamp: new Date().toISOString(),
+			error: err?.message ?? "Unknown error",
+		};
 	}
 }
