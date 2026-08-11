@@ -109,6 +109,15 @@ export function printToolHelp(toolName: string) {
 	console.log(`Tool: ${h.name}`);
 	console.log(`Description: ${h.description}`);
 	console.log("Schema:", JSON.stringify(h.schema, null, 2));
+	console.log(`Result format:`);
+	console.log(`{
+  "tool": "${h.name}",
+  "durationMs": number,
+  "timestamp": "ISO-8601",
+  "result": <tool-specific data>
+  // or
+  "error": "string"
+}`);
 }
 
 export async function runTool(
