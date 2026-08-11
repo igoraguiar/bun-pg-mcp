@@ -14,7 +14,7 @@ import {
   pgGetUniqueConstraints,
   pgListTableForeignKeysEnhanced,
   pgListTriggerFunctions,
-  pgDescribeTriggerFunction,
+  pgDescribeFunction,
 } from "../src/db/helpers";
 
 let cleanup: () => Promise<void>;
@@ -389,9 +389,9 @@ describe("Trigger Function Helpers", () => {
     expect(Array.isArray(funcs)).toBe(true);
   });
 
-  test("pgDescribeTriggerFunction should describe a function", async () => {
+  test("pgDescribeFunction should describe a function", async () => {
     await pg`CREATE OR REPLACE FUNCTION public.test_trig_func() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RETURN NEW; END; $$`;
-    const details = await pgDescribeTriggerFunction(pg, "test_trig_func", "public");
+    const details = await pgDescribeFunction(pg, "test_trig_func", "public");
     expect(details.function_name).toBe("test_trig_func");
     expect(details.language).toBe("plpgsql");
     expect(details.definition).toContain("CREATE OR REPLACE FUNCTION");

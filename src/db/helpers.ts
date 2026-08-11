@@ -277,7 +277,7 @@ export async function pgListTriggerFunctions(pg: SQL, schemaName?: string): Prom
   }
 }
 
-export async function pgDescribeTriggerFunction(pg: SQL, functionName: string, schemaName: string = 'public'): Promise<PgTriggerFunctionDetails> {
+export async function pgDescribeFunction(pg: SQL, functionName: string, schemaName: string = 'public'): Promise<PgTriggerFunctionDetails> {
   const funcInfo: Array<{ schema_name: string; function_name: string; language: string; return_type: string; oid: string }> = await pg`
     SELECT
       n.nspname AS schema_name,

@@ -17,7 +17,7 @@ import {
   pgGetTriggers,
   pgListTableForeignKeysEnhanced,
   pgListTriggerFunctions,
-  pgDescribeTriggerFunction,
+  pgDescribeFunction,
 } from "./db/helpers";
 import type { PgTableDetails, PgTableFullDetails } from "./db/types";
 
@@ -259,7 +259,7 @@ handlers.push({
     const name = await resolveDatabaseName(configManager, args.database);
     const { url } = await configManager.getConfig(name);
     const client = pool.get(url);
-    return pgDescribeTriggerFunction(client, func, schema);
+    return pgDescribeFunction(client, func, schema);
   },
 });
 
