@@ -88,6 +88,17 @@ Output is JSON envelope:
   "error": "..."
 }
 Credentials are redacted in URLs.
+
+## MCP Server Capabilities
+The same tools are also available over the Model Context Protocol for MCP clients (e.g. Cursor, Claude Desktop):
+- stdio mode (default): ${bunPgMcpFile} --mode stdio
+- Streamable HTTP mode: ${bunPgMcpFile} --mode http [--http-host <host>] [--http-port <port>]
+  Endpoint: http://<host>:<port>/mcp (defaults: 0.0.0.0:3838)
+
+All tools listed by --help are registered as MCP tools with identical names and argument schemas.
+An MCP prompt \`gen_types\` (optional args: database, schema, tables) generates TypeScript types for tables.
+
+Prefer MCP mode for persistent interactive sessions inside an MCP client; use CLI mode for one-shot scripted calls.
 `);
 }
 

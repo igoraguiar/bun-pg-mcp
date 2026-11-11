@@ -92,14 +92,26 @@ export function getToolSchema(toolName: string) {
 	return h?.schema ?? null;
 }
 
+/**
+ * Print CLI help as JSON to stdout: usage, supported flags, and available tools.
+ */
 export function printHelp() {
 	const tools = handlers.map(h => ({
 		name: h.name,
 		description: h.description,
 		args: Object.keys(h.schema),
 	}));
+	const flags = [
+		{ flag: "--tool, -t <name>", description: "Tool to execute (required unless --help or --skill is given)" },
+		{ flag: "--database, -d <name>", description: "Target database; required when multiple databases are configured" },
+		{ flag: "--format, -f <format>", description: "Output format; only 'json' is supported" },
+		{ flag: "--verbose, -v", description: "Print debug info to stderr" },
+		{ flag: "--help, -h [tool]", description: "Print this help, or help for a specific tool" },
+		{ flag: "--skill", description: "Print an AI agent skill (SKILL.md) documenting this CLI to stdout" },
+	];
 	console.log(JSON.stringify({
 		usage: "pg-mcp --mode cli --tool <name> [--key value...]",
+		flags,
 		tools,
 	}, null, 2));
 }
