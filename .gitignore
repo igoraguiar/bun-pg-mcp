@@ -56,3 +56,6 @@ node_modules/
 # tasks.json
 # tasks/ 
 .ai-jail
+
+# pi agent local config
+.pi/
